@@ -1,0 +1,33 @@
+[package]
+name = "rusty-images"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+opt-level = 3
+debug = "none"
+
+[dependencies]
+rocket = { version = "0.5.1", features = ["json"] }
+diesel = { version = "2.2.4", features = ["sqlite", "r2d2", "serde_json"] }
+diesel_migrations = {version = "2.2"}
+libsqlite3-sys = { version = "0.30", features = ["bundled"] }
+walkdir = "2.5.0"
+sha2 = "0.11.0-pre.4"
+image = "0.25.2"
+rand = "0.8.5"
+tempfile = "3.12.0"
+moka = { version = "0.12.8", features = ["sync"] }
+
+[dev-dependencies]
+parking_lot = "0.12"
+rand = "0.8"
+
+[dependencies.rocket_sync_db_pools]
+version = "0.1.0"
+features = ["diesel_sqlite_pool"]
+
+[dependencies.rocket_dyn_templates]
+version = "0.2.0"
+features = ["tera"]
+

@@ -1,0 +1,6 @@
+target/
+files
+node_modules
+dist
+.idea/
+db

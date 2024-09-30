@@ -1,0 +1,28 @@
+[default]
+address = "0.0.0.0"
+port = 8000
+workers = 8
+max_blocking = 512
+keep_alive = 5
+ident = "Rocket"
+ip_header = "X-Real-IP" # set to `false` to disable
+log_level = "critical"
+temp_dir = "/tmp"
+cli_colors = false
+secret_key = "161728a27c71f26bcb1d11ef30d2940e54453"
+template_dir = "static/"
+
+[default.limits]
+form = "64 kB"
+json = "10 MiB"
+msgpack = "2 MiB"
+"file/jpg" = "10 MiB"
+
+[default.shutdown]
+ctrlc = true
+signals = ["term", "hup"]
+grace = 5
+mercy = 5
+
+[default.databases.sqlite_database]
+url = "db/db.sqlite"

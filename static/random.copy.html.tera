@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Rusty Images</title>
+    <link rel="stylesheet" href="https://unpkg.com/bootstrap@4/dist/css/bootstrap.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.6/viewer.css"
+          integrity="sha512-eG8C/4QWvW9MQKJNw2Xzr0KW7IcfBSxljko82RuSs613uOAg/jHEeuez4dfFgto1u6SRI/nXmTr9YPCjs1ozBg=="
+          crossorigin="anonymous" referrerpolicy="no-referrer"/>
+</head>
+<body>
+
+<script src="https://unpkg.com/jquery@3/dist/jquery.slim.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/bootstrap@4/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.6/viewer.js"
+        integrity="sha512-MdZwHb4u4qCy6kVoTLL8JxgPnARtbNCUIjTCihWcgWhCsLfDaQJib4+OV0O8IS+ea+3Xv/6pH3vYY4LWpU/gbQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+    window.addEventListener('DOMContentLoaded', function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        const navbar = urlParams.get('navbar');
+
+        var viewer = new Viewer(document.getElementById('images'), {
+            hidden: function () {
+                this.viewer.show()
+            },
+            hide: function () {
+                this.viewer.show()
+            },
+            url(image) {
+                return image.src + "/download"
+            },
+            loop: false,
+            backdrop: "static",
+            button: false,
+            navbar: navbar ? navbar : false,
+            title: true,
+
+            viewed: (e) => {
+                const totalImages = e.explicitOriginalTarget.childElementCount;
+                const currentImageIndex = e.detail.index + 1;
+                console.log("Count: "+ totalImages + ", Current: "+ currentImageIndex)
+
+                if (currentImageIndex === totalImages) {
+                    location.reload();
+                }
+            },
+        });
+
+        viewer.show();
+    });
+</script>
+</body>
+
+<div>
+    <ul hidden="hidden" id="images">
+        {% for file in files %}
+        <li><img alt="{{file.hash}}"  fetchpriority="low" loading="lazy" src="/files/{{file.hash}}"></li>
+        {% endfor %}
+    </ul>
+</div>
+</html>
