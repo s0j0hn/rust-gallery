@@ -18,5 +18,3 @@ Cargo.lock
 .cargo
 **/*.sh
 **/*.tar.gz
-
-src-ui

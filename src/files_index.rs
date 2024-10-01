@@ -50,9 +50,9 @@ fn truncate_strings(strings: &mut Vec<String>) {
     }
 }
 
-pub async fn walk_directory(dir_path: &str, conn: DbConn) {
+pub async fn walk_directory(dir_path: &str, conn: &DbConn) {
     println!("************************");
-    println!("STARTED INDEXING...");
+    println!("STARTED INDEXING {}...", dir_path);
     println!("************************");
     let mut printed_dirs: HashSet<String> = HashSet::new();
     let set_all_file_schemas: HashSet<String> = FileSchema::all_hashes(&conn)
@@ -111,7 +111,7 @@ pub async fn walk_directory(dir_path: &str, conn: DbConn) {
                     height: image_info.h as i32,
                 };
 
-                match FileSchema::insert(image, &conn).await {
+                match FileSchema::insert(image, conn).await {
                     Ok(_) => {
                         if printed_dirs.insert(folder_name.clone()) {
                             println!("Folder: {} - ongoing...", &folder_name);
@@ -125,7 +125,7 @@ pub async fn walk_directory(dir_path: &str, conn: DbConn) {
         }
     }
     println!("************************");
-    println!("DONE INDEXING");
+    println!("DONE INDEXING {}", dir_path);
     println!("************************");
 }
 

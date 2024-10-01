@@ -24,8 +24,8 @@ use moka::sync::Cache;
 use rocket::fairing::AdHoc;
 use rocket::fs::{relative, FileServer, Options};
 use rocket::request::FlashMessage;
-use rocket::serde::Serialize;
-use rocket::{Build, Rocket, State};
+use rocket::serde::{Deserialize, Serialize};
+use rocket::{Build, Config, Rocket, State};
 use rocket_dyn_templates::Template;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -102,12 +102,16 @@ async fn cancel_task(thread_manager: &State<ThreadManager>) -> Template {
 }
 
 #[get("/index")]
-async fn index_files(flash: Option<FlashMessage<'_>>, conn: DbConn, thread_manager: &State<ThreadManager>) -> Template {
+async fn index_files(config: &State<AppConfig>, flash: Option<FlashMessage<'_>>, conn: DbConn, thread_manager: &State<ThreadManager>) -> Template {
     let flash = flash.map(FlashMessage::into_inner);
+    
+    let mut task_guard = thread_manager.task.lock().await;
     let should_cancel = thread_manager.should_cancel.clone();
     should_cancel.store(false, Ordering::SeqCst);
+    
+    let images_dirs = config.images_dirs.clone();
 
-    if !thread_manager.task.lock().await.is_none() {
+    if task_guard.is_some() {
         return Template::render(
             "tasks",
             Context {
@@ -123,10 +127,12 @@ async fn index_files(flash: Option<FlashMessage<'_>>, conn: DbConn, thread_manag
         if should_cancel.load(Ordering::SeqCst) {
             return;
         }
-        files_index::walk_directory("files", conn).await
+
+        for images_dir in images_dirs {
+            files_index::walk_directory(&images_dir, &conn).await
+        }
     });
 
-    let mut task_guard = thread_manager.task.lock().await;
     *task_guard = Some(task);
     
     Template::render(
@@ -175,6 +181,11 @@ async fn run_migrations(rocket: Rocket<Build>) -> Rocket<Build> {
     rocket
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(crate = "rocket::serde")]
+struct AppConfig {
+    images_dirs: Vec<String>,
+}
 
 #[launch]
 fn rocket() -> _ {
@@ -192,6 +203,7 @@ fn rocket() -> _ {
         })
         .manage(cache)
         .manage(thread_manager)
+        .attach(AdHoc::config::<AppConfig>())
         .attach(DbConn::fairing())
         .attach(Template::fairing())
         .attach(AdHoc::on_ignite("Run Migrations", run_migrations))
