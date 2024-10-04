@@ -17,7 +17,7 @@ mod cache_files;
 mod task_manager;
 mod context;
 
-use crate::file_schema::FileSchema;
+use crate::file_schema::{FileSchema, FolderCount};
 use crate::random_files::random;
 use crate::random_files_json::{get_all_json, random_json};
 use moka::sync::Cache;
@@ -25,7 +25,7 @@ use rocket::fairing::AdHoc;
 use rocket::fs::{relative, FileServer, Options};
 use rocket::request::FlashMessage;
 use rocket::serde::{Deserialize, Serialize};
-use rocket::{Build, Config, Rocket, State};
+use rocket::{Build, Rocket, State};
 use rocket_dyn_templates::Template;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -44,8 +44,10 @@ pub struct DbConn(diesel::SqliteConnection);
 struct Context {
     flash: Option<(String, String)>,
     files: Vec<FileSchema>,
-    folders: Option<Vec<String>>,
-    count_files: i32,
+    folders: Vec<FolderCount>,
+    count_files: i64,
+    roots: Vec<String>,
+    tags: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -84,8 +86,10 @@ async fn cancel_task(thread_manager: &State<ThreadManager>) -> Template {
             Context {
                 flash: Some(("error".into(), "Task cancellation requested.".into())),
                 files: vec![],
-                folders: None,
+                folders: vec![],
                 count_files: 0,
+                roots: vec![],
+                tags: vec![],
             },
         )
     } else {
@@ -94,16 +98,20 @@ async fn cancel_task(thread_manager: &State<ThreadManager>) -> Template {
             Context {
                 flash: Some(("error".into(), "Task not running".into())),
                 files: vec![],
-                folders: None,
+                folders: vec![],
                 count_files: 0,
+                roots: vec![],
+                tags: vec![],
             },
         )
     }
 }
 
-#[get("/index")]
-async fn index_files(config: &State<AppConfig>, flash: Option<FlashMessage<'_>>, conn: DbConn, thread_manager: &State<ThreadManager>) -> Template {
+#[get("/index?<force>")]
+async fn index_files(config: &State<AppConfig>, flash: Option<FlashMessage<'_>>, conn: DbConn, thread_manager: &State<ThreadManager>, force: Option<&str>) -> Template {
     let flash = flash.map(FlashMessage::into_inner);
+
+    let force_write = force.unwrap_or("false").trim().parse::<bool>().unwrap_or(false);
     
     let mut task_guard = thread_manager.task.lock().await;
     let should_cancel = thread_manager.should_cancel.clone();
@@ -117,8 +125,10 @@ async fn index_files(config: &State<AppConfig>, flash: Option<FlashMessage<'_>>,
             Context {
                 flash: Some(("error".into(), "Task is already running".into())),
                 files: vec![],
-                folders: None,
+                folders: vec![],
                 count_files: 0,
+                roots: vec![],
+                tags: vec![],
             },
         )
     }
@@ -129,7 +139,7 @@ async fn index_files(config: &State<AppConfig>, flash: Option<FlashMessage<'_>>,
         }
 
         for images_dir in images_dirs {
-            files_index::walk_directory(&images_dir, &conn).await
+            files_index::walk_directory(&images_dir, &conn, &force_write).await
         }
     });
 
@@ -140,25 +150,32 @@ async fn index_files(config: &State<AppConfig>, flash: Option<FlashMessage<'_>>,
         Context {
             flash: flash,
             files: vec![],
-            folders: None,
+            folders: vec![],
             count_files: 0,
+            roots: vec![],
+            tags: vec![],
         },
     )
 }
 
-#[get("/?<searchby>")]
-async fn retrieve_folders(flash: Option<FlashMessage<'_>>, conn: DbConn, searchby: Option<&str>) -> Template {
+#[get("/?<searchby>&<root>")]
+async fn retrieve_folders(flash: Option<FlashMessage<'_>>, conn: DbConn, searchby: Option<&str>, root: Option<&str>) -> Template {
     let flash = flash.map(FlashMessage::into_inner);
     let search_b = searchby.unwrap_or("_");
+    let root = root.unwrap_or("_");
 
     match search_b.starts_with("%") && search_b.ends_with("%") {
         true => {
             let search_bs = &search_b.replace("%", "");
-            Template::render("index", Context::get_folders(&conn, flash, search_bs).await)
+            let root_by = &root.replace("%", "");
+
+            Template::render("index", Context::get_folders(&conn, flash, search_bs, root_by).await)
         }
         false => {
             let search_by = "%".to_owned() + search_b + "%";
-            Template::render("index", Context::get_folders(&conn, flash, &search_by).await)
+            let root_by = "%".to_owned() + root + "%";
+
+            Template::render("index", Context::get_folders(&conn, flash, &search_by, &root_by).await)
 
         }
     }
@@ -179,6 +196,29 @@ async fn run_migrations(rocket: Rocket<Build>) -> Rocket<Build> {
         .await;
 
     rocket
+}
+
+#[get("/?<searchby>&<root>")]
+async fn beta_index(flash: Option<FlashMessage<'_>>, conn: DbConn, searchby: Option<&str>, root: Option<&str>) -> Template {
+    let flash = flash.map(FlashMessage::into_inner);
+    let search_b = searchby.unwrap_or("_");
+    let root = root.unwrap_or("_");
+
+    match search_b.starts_with("%") && search_b.ends_with("%") {
+        true => {
+            let search_bs = &search_b.replace("%", "");
+            let root_by = &root.replace("%", "");
+
+            Template::render("beta", Context::get_folders(&conn, flash, search_bs, root_by).await)
+        }
+        false => {
+            let search_by = "%".to_owned() + search_b + "%";
+            let root_by = "%".to_owned() + root + "%";
+
+            Template::render("beta", Context::get_folders(&conn, flash, &search_by, &root_by).await)
+
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -208,6 +248,7 @@ fn rocket() -> _ {
         .attach(Template::fairing())
         .attach(AdHoc::on_ignite("Run Migrations", run_migrations))
         .mount("/", FileServer::new(relative!("static"), options))
+        .mount("/beta", routes![beta_index])
         .mount(
             "/files",
             routes![index, index_files, cancel_task, retrieve_file, random, random_json, get_all_json],

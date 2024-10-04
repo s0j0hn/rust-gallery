@@ -29,8 +29,11 @@ pub async fn retrieve_file(hash: &str, conn: DbConn, width: Option<usize>, heigh
 
             let file_buffer = File::open(&f_schema.path).ok();
             let mut buffer = Vec::new();
-            let _ = file_buffer.unwrap().read_to_end(&mut buffer);
-
+            
+            if file_buffer.is_some() {
+                file_buffer.unwrap().read_to_end(&mut buffer).expect("Unable to read file or file not found");
+            }
+            
             Ok(CachedImage(buffer))
         }
     }

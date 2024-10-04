@@ -1,3 +1,4 @@
+use diesel::QueryResult;
 use rocket::State;
 use crate::{Context, DbConn};
 use crate::cache_files::StateFiles;
@@ -18,8 +19,10 @@ impl Context {
             Context {
                 flash,
                 files: folder_files.to_vec(),
-                folders: None,
+                folders: vec![],
                 count_files: 0,
+                roots: vec![],
+                tags: vec![],
             }
         } else {
             match FileSchema::all_by_folder(
@@ -33,8 +36,10 @@ impl Context {
                     Context {
                         flash,
                         files: folder_files.to_vec(),
-                        folders: None,
-                        count_files: 0
+                        folders: vec![],
+                        count_files: 0,
+                        roots: vec![],
+                        tags: vec![],
                     }
                 }
                 Err(e) => {
@@ -42,25 +47,63 @@ impl Context {
                     Context {
                         flash: Some(("error".into(), "Fail to access database.".into())),
                         files: vec![],
-                        folders: None,
+                        folders: vec![],
                         count_files: 0,
+                        roots: vec![],
+                        tags: vec![],
                     }
                 }
             }
         }
     }
 
-    pub async fn get_folders(conn: &DbConn, flash: Option<(String, String)>, search_by: &str) -> Context {
-        match FileSchema::get_folders(conn, search_by.to_string()).await {
-            Ok(mut folders) => {
+    pub async fn get_folders(conn: &DbConn, flash: Option<(String, String)>, search_by: &str, root: &str) -> Context {
+        match FileSchema::get_folders(conn, search_by.to_string(), root.to_string()).await {
+            Ok(mut folders_info) => {
                 match FileSchema::count_all(&conn).await {
                     Ok(count) => {
-                        folders.sort_by_key(|name| name.to_lowercase());
-                        Context {
-                            flash,
-                            files: vec![],
-                            folders: Some(folders),
-                            count_files: count as i32,
+                        folders_info.sort_by_key(|folder| folder.folder_name.to_lowercase());
+                        
+                        match FileSchema::get_roots(&conn).await {
+                            Ok(roots) => {
+                                match FileSchema::get_all_tags(&conn).await {
+                                    Ok(mut tags) => {
+                                        tags.sort_by_key(|tag| tag.to_lowercase());
+                                        
+                                        Context {
+                                            flash,
+                                            files: vec![],
+                                            folders: folders_info,
+                                            count_files: count,
+                                            roots,
+                                            tags: tags,
+                                        }
+                                    }
+                                    Err(e) => {
+                                        error!("DB File::get_folders() error: {e}");
+                                        Context {
+                                            flash: Some(("error".into(), "Fail to access database.".into())),
+                                            files: vec![],
+                                            folders: vec![],
+                                            count_files: 0,
+                                            roots: vec![],
+                                            tags: vec![],
+                                        }
+                                    }
+                                }
+                                
+                            }
+                            Err(e) => {
+                                error!("DB File::get_folders() error: {e}");
+                                Context {
+                                    flash: Some(("error".into(), "Fail to access database.".into())),
+                                    files: vec![],
+                                    folders: vec![],
+                                    count_files: 0,
+                                    roots: vec![],
+                                    tags: vec![],
+                                }
+                            }
                         }
                     }
                     Err(e) => {
@@ -68,8 +111,10 @@ impl Context {
                         Context {
                             flash: Some(("error".into(), "Fail to access database.".into())),
                             files: vec![],
-                            folders: None,
+                            folders: vec![],
                             count_files: 0,
+                            roots: vec![],
+                            tags: vec![],
                         }
                     }
                 }
@@ -81,8 +126,10 @@ impl Context {
                 Context {
                     flash: Some(("error".into(), "Fail to access database.".into())),
                     files: vec![],
-                    folders: None,
+                    folders: vec![],
                     count_files: 0,
+                    roots: vec![],
+                    tags: vec![],
                 }
             }
         }
@@ -99,8 +146,10 @@ impl Context {
                 Context {
                     flash: flash,
                     files,
-                    folders: None,
+                    folders: vec![],
                     count_files: 0,
+                    roots: vec![],
+                    tags: vec![],
                 }
             }
             Err(e) => {
@@ -108,8 +157,10 @@ impl Context {
                 Context {
                     flash: Some(("error".into(), "Fail to access database.".into())),
                     files: vec![],
-                    folders: None,
+                    folders: vec![],
                     count_files: 0,
+                    roots: vec![],
+                    tags: vec![],
                 }
             }
         }

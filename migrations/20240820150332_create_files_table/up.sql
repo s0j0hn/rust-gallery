@@ -7,7 +7,8 @@ CREATE TABLE files (
     folder_name VARCHAR NOT NULL,
     width VARCHAR NOT NULL,
     height VARCHAR NOT NULL,
-    tags VARCHAR default '[]'
+    tags VARCHAR default '[]',
+    root VARCHAR NOT NULL
 );
 
 create index files_hash_index

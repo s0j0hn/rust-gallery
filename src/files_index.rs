@@ -7,7 +7,7 @@ use std::io;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use image::ImageReader;
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 
 fn extract_image_info(path: &PathBuf) -> ImageInfo {
     let reader = ImageReader::open(path);
@@ -50,77 +50,129 @@ fn truncate_strings(strings: &mut Vec<String>) {
     }
 }
 
-pub async fn walk_directory(dir_path: &str, conn: &DbConn) {
+fn is_hidden(entry: &DirEntry) -> bool {
+    entry.file_name()
+        .to_str()
+        .map(|s| s.starts_with("."))
+        .unwrap_or(false)
+}
+
+pub async fn walk_directory(dir_path: &str, conn: &DbConn, force_write: &bool) {
     println!("************************");
     println!("STARTED INDEXING {}...", dir_path);
     println!("************************");
     let mut printed_dirs: HashSet<String> = HashSet::new();
-    let set_all_file_schemas: HashSet<String> = FileSchema::all_hashes(&conn)
-        .await
-        .map(|mut hashes| {
-            truncate_strings(&mut hashes);
-            hashes.into_iter().collect()
-        })
-        .unwrap_or_default();
+    let mut set_all_file_schemas: HashSet<String> = HashSet::new();
+    
+    if *force_write == false {
+        set_all_file_schemas = FileSchema::all_hashes(&conn)
+            .await
+            .map(|mut hashes| {
+                truncate_strings(&mut hashes);
+                hashes.into_iter().collect()
+            })
+            .unwrap_or_default();
+    }
 
-    for entry in WalkDir::new(dir_path) {
-        let entry = entry.unwrap();
-        let path = entry.path();
-        
-        if path.is_dir() {
-            continue;
-        }
-        
-        if !is_image(path) {
-            continue;
-        }
+    for op_entry in WalkDir::new(dir_path).max_depth(2) {
+        match op_entry {
+            Ok(entry) => {
+                let path = entry.path();
+                
+                if is_hidden(&entry) {
+                    continue;
+                }
 
-        let file_name = path
-            .file_stem()
-            .and_then(|name| name.to_str())
-            .unwrap_or("")
-            .to_string();
+                if entry.path().to_str().unwrap().contains("@eadir") {
+                    continue;
+                }
 
-        let vec_file_name_hash: Vec<&str> = file_name.split("_").collect();
-        let file_name_hash: &str;
-        match vec_file_name_hash.len() == 2 {
-            true => {
-                file_name_hash = vec_file_name_hash[1];
-            }
-            false => {
-                file_name_hash = "";
-            }
-        }
+                if entry.file_type().is_dir() {
+                    continue;
+                }
 
-        match set_all_file_schemas.get(file_name_hash) {
-            None => {
-                let hash = calculate_sha256(&entry.path());
-                let hash_value = hash.unwrap();
+                if path.is_dir() {
+                    continue;
+                }
 
-                // Extract folder name
-                let image_info = extract_image_info(&PathBuf::from(path));
-                let folder_name = image_info.folder_name.clone();
+                if !is_image(path) {
+                    continue;
+                }
 
-                let image = Image {
-                    path: path.to_str().unwrap().to_string(),
-                    hash: hash_value,
-                    extention: image_info.file_extension,
-                    filename: image_info.file_name,
-                    folder_name: image_info.folder_name,
-                    width: image_info.w as i32,
-                    height: image_info.h as i32,
-                };
+                let file_name = path
+                    .file_stem()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("")
+                    .to_string();
 
-                match FileSchema::insert(image, conn).await {
-                    Ok(_) => {
-                        if printed_dirs.insert(folder_name.clone()) {
-                            println!("Folder: {} - ongoing...", &folder_name);
+                let vec_file_name_hash: Vec<&str> = file_name.split("_").collect();
+                let file_name_hash: &str;
+                match vec_file_name_hash.len() == 2 {
+                    true => {
+                        file_name_hash = vec_file_name_hash[1];
+                    }
+                    false => {
+                        file_name_hash = "";
+                    }
+                }
+
+                match set_all_file_schemas.get(file_name_hash) {
+                    None => {
+                        let hash = calculate_sha256(&entry.path());
+                        let hash_value = hash.unwrap();
+
+                        // Extract folder name
+                        let image_info = extract_image_info(&PathBuf::from(path));
+                        let folder_name = image_info.folder_name.clone();
+                        let trim_folder_name = image_info.folder_name
+                            .to_lowercase()
+                            .replace(" ", "-")
+                            .replace(&['/','#','&','(', ')', ',', '\"', '.', ';', ':', '\''][..], "");
+
+                        if image_info.w == 0 || image_info.h == 0 {
+                            continue;
+                        }
+
+                        let image = Image {
+                            root: dir_path.to_string(),
+                            path: path.to_str().unwrap().to_string(),
+                            hash: hash_value,
+                            extention: image_info.file_extension,
+                            filename: image_info.file_name,
+                            folder_name: trim_folder_name,
+                            width: image_info.w as i32,
+                            height: image_info.h as i32,
+                        };
+                        
+                        match force_write {
+                            true => {
+                                match FileSchema::update(image, conn).await {
+                                    Ok(_) => {
+                                        if printed_dirs.insert(folder_name.clone()) {
+                                            println!("Folder: {} - ongoing update...", &folder_name);
+                                        }
+                                    }
+                                    Err(_) => continue,
+                                }
+                            }
+                            false => {
+                                match FileSchema::insert(image, conn).await {
+                                    Ok(_) => {
+                                        if printed_dirs.insert(folder_name.clone()) {
+                                            println!("Folder: {} - ongoing inserts...", &folder_name);
+                                        }
+                                    }
+                                    Err(_) => continue,
+                                }
+                            }
                         }
                     }
-                    Err(_) => continue,
+                    Some(_) => {
+                    }
                 }
             }
-            Some(_) => {
+            Err(err) => {
+                println!("Error: {}", err);
             }
         }
     }

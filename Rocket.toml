@@ -11,7 +11,7 @@ temp_dir = "/tmp"
 cli_colors = false
 secret_key = "161728a27c71f26bcb1d11ef30d2940e54453"
 template_dir = "static/"
-images_dirs = ["files"]
+images_dirs = ["files", "captions", "zishy", "sc"]
 
 [default.limits]
 form = "64 kB"

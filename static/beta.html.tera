@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+
+
+    <title>Rusty Images</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://netdna.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/beta.css">
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet">
+
+</head>
+<body>
+<script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
+<script src="https://netdna.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+<script type="text/javascript">
+
+</script>
+<div class="container">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="ibox float-e-margins">
+                <div class="ibox-content">
+                    <div class="file-manager">
+                        <h5>Total files: {{count_files}}</h5>
+                      <!--  <a href="#" class="file-control active">Ale</a>
+                        <a href="#" class="file-control">Documents</a>
+                        <a href="#" class="file-control">Audio</a>
+                        <a href="#" class="file-control">Images</a> -->
+                        <div class="hr-line-dashed"></div>
+                        <a href="/files/random?size=100" ><button class="btn btn-primary btn-block">Random 100</button></a>
+                        <div class="hr-line-dashed"></div>
+                        <a href="/files/random?size=200" ><button class="btn btn-primary btn-block">Random 200</button></a>
+                        <div class="hr-line-dashed"></div>
+                        <a href="/files/random?size=400"><button class="btn btn-primary btn-block">Random 400</button></a>
+                        <div class="hr-line-dashed"></div>
+                        <a href="/files/index"><button class="btn btn-primary btn-block">Index Files</button></a>
+                        <div class="hr-line-dashed"></div>
+                        <a href="/files/index?force=true"><button class="btn btn-primary btn-block">Index Files (Force)</button></a>
+                        <div class="hr-line-dashed"></div>
+                        <h5>Folders</h5>
+                        <ul class="folder-list" style="padding: 0">
+                            <form id="searchForm" action="/beta?search=" class="d-flex input-group w-auto">
+                                <input
+                                        id="searchInput"
+                                        name="searchby"
+                                        type="search"
+                                        class="form-control rounded"
+                                        placeholder="Search"
+                                        aria-label="Search"
+                                        aria-describedby="search-addon"
+                                />
+                                <span class="input-group-text border-0" id="search-addon"></span>
+                            </form>
+                            {% for root in roots %}
+                            <li><a href="/beta?root={{root}}"><i class="fa fa-folder"></i> {{root}}</a></li>
+                            {% endfor %}
+                        </ul>
+                        <h5 class="tag-title">Tags</h5>
+                        <ul class="tag-list" style="padding: 0">
+                            {% for tag in tags %}
+                            <li><a href="/beta?tags={{tag}}">{{tag}}</a></li>
+                            {% endfor %}
+                        </ul>
+                        <div class="clearfix"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-9 animated fadeInRight">
+            <div class="row">
+                <div class="col-lg-12">
+                    {% for folder in folders %}
+                    <div class="file-box">
+                        <div class="file">
+                            <a href="/files?folder={{folder.folder_name}}">
+                                <span class="corner"></span>
+                                <div class="image">
+                                    <img fetchpriority="low" loading="lazy" alt="{{folder.folder_name}}" class="img-responsive"
+                                         src="/folders/thumbnail/download?folder={{folder.folder_name}}&width=400&height=300">
+                                </div>
+                                <div class="file-name">
+                                    {{folder.folder_name}}
+                                    <br>
+                                    <small><a class="file-control" href="/files/random?folder={{folder.folder_name}}&size=10">Random 10</a></small>
+                                    <small><a class="file-control" href="/files/random?folder={{folder.folder_name}}&size=100">Random 100</a></small>
+                                    <small><a class="file-control" href="/files/random?folder={{folder.folder_name}}&size=300">Random 300</a></small>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

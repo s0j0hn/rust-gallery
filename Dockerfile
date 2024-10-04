@@ -27,6 +27,6 @@ COPY --from=build /build/main ./
 COPY --from=build /build/Rocket.toml ./
 COPY --from=build /build/static ./static
 COPY --from=build /build/migrations ./migrations
-#COPY --from=build /build/db ./db
+#COPY --from=build /build/db.sqlite ./db.sqlite
 
 CMD ./main
