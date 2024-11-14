@@ -39,7 +39,6 @@ fn test_index() {
     assert_eq!(response.status(), Status::Ok);
 }
 
-
 #[test]
 fn test_index_search() {
     use rocket::local::blocking::Client;

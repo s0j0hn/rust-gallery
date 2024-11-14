@@ -17,9 +17,9 @@
                 {% for file in files %}
                 <figure itemprop="associatedMedia" itemscope itemtype="http://schema.org/ImageObject">
                     <!-- Link to the big image, not mandatory, but usefull when there is no JS -->
-                    <a href="/files/{{file.hash}}"  data-pswp-width="{{file.width}}" data-pswp-height="{{file.height}}" target="_blank" itemprop="contentUrl">
+                    <a href="/files/{{file.hash}}" data-pswp-tags="{{file.tags}}" data-pswp-width="{{file.width}}" data-pswp-height="{{file.height}}" target="_blank" itemprop="contentUrl">
                         <!-- Thumbnail -->
-                        <img hidden="hidden" itemprop="thumbnail" alt="{{file.hash}}"  fetchpriority="low" loading="lazy" src="/files/{{file.hash}}">
+                        <img hidden="hidden" data-pswp-hash="{{file.hash}}" data-pswp-tags="{{file.tags}}" data-pswp-folder="{{file.folder_name}}" itemprop="thumbnail" alt="{{file.filename}}.{{file.extention}}"  fetchpriority="low" loading="lazy" src="/files/{{file.hash}}">
                     </a>
                 </figure>
                 {% endfor %}
@@ -77,96 +77,7 @@
     </div>
 </div>
 
-<script type="module">
-    import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.4.4/photoswipe-lightbox.esm.min.js';
+<script type="module" src="/js/gallery.js"></script>
 
-    window.addEventListener('DOMContentLoaded', function () {
-        const lightbox = new PhotoSwipeLightbox({
-            bgOpacity: 1,
-            gallery: '#my-gallery',
-            children: 'a',
-            preload: [2,4],
-            loop: false,
-            close: false,
-            pinchToClose: false,
-            closeOnVerticalDrag: false,
-            escKey: false,
-            mainClass: 'pswp-with-perma-preloader',
-            pswpModule: () => import('https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.4.4/photoswipe.esm.min.js')
-        });
-
-        lightbox.addFilter('numItems', (numItems) => {
-            return ++numItems;
-        });
-
-        lightbox.on('contentActivate', ({ content }) => {
-            if (content.index === lightbox.getNumItems() - 1) {
-                location.reload()
-            }
-        });
-
-        lightbox.on('contentLoad', (e) => {
-            const { content, isLazy } = e;
-
-            if (content.data.webpSrc) {
-                // prevent to stop the default behavior
-                e.preventDefault();
-
-                content.pictureElement = document.createElement('picture');
-
-                const sourceWebp = document.createElement('source');
-                sourceWebp.srcset = content.data.webpSrc;
-                sourceWebp.type = 'image/webp';
-
-                const sourceJpg = document.createElement('source');
-                sourceJpg.srcset = content.data.src;
-                sourceJpg.type = 'image/jpeg';
-
-                content.element = document.createElement('img');
-                content.element.src = content.data.src;
-                content.element.setAttribute('alt', '');
-                content.element.className = 'pswp__img';
-
-                content.pictureElement.appendChild(sourceWebp);
-                content.pictureElement.appendChild(sourceJpg);
-                content.pictureElement.appendChild(content.element);
-
-                content.state = 'loading';
-
-                if (content.element.complete) {
-                    content.onLoaded();
-                } else {
-                    content.element.onload = () => {
-                        content.onLoaded();
-                    };
-
-                    content.element.onerror = () => {
-                        content.onError();
-                    };
-                }
-            }
-        })
-
-        lightbox.addFilter('itemData', (itemData, index) => {
-            console.log(itemData)
-            return {
-                ...itemData,
-                src: itemData.src + "/download",
-                msrc: itemData.msrc + "/download",
-            };
-        });
-        lightbox.on('close', () => {
-            location.reload()
-        });
-        lightbox.on('destroy', () => {
-            // PhotoSwipe is fully closed, destroy everything
-            console.log('destroy');
-        });
-
-        lightbox.init();
-        lightbox.loadAndOpen(0);
-    });
-
-</script>
 </body>
 </html>

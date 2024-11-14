@@ -1,12 +1,12 @@
-use std::collections::HashSet;
 use crate::file_schema::{FileSchema, Image};
 use crate::DbConn;
+use image::ImageReader;
 use sha2::{Digest, Sha256};
+use std::collections::HashSet;
 use std::fs::File;
 use std::io;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use image::ImageReader;
 use walkdir::{DirEntry, WalkDir};
 
 fn extract_image_info(path: &PathBuf) -> ImageInfo {
@@ -51,7 +51,8 @@ fn truncate_strings(strings: &mut Vec<String>) {
 }
 
 fn is_hidden(entry: &DirEntry) -> bool {
-    entry.file_name()
+    entry
+        .file_name()
         .to_str()
         .map(|s| s.starts_with("."))
         .unwrap_or(false)
@@ -63,7 +64,7 @@ pub async fn walk_directory(dir_path: &str, conn: &DbConn, force_write: &bool) {
     println!("************************");
     let mut printed_dirs: HashSet<String> = HashSet::new();
     let mut set_all_file_schemas: HashSet<String> = HashSet::new();
-    
+
     if *force_write == false {
         set_all_file_schemas = FileSchema::all_hashes(&conn)
             .await
@@ -78,7 +79,7 @@ pub async fn walk_directory(dir_path: &str, conn: &DbConn, force_write: &bool) {
         match op_entry {
             Ok(entry) => {
                 let path = entry.path();
-                
+
                 if is_hidden(&entry) {
                     continue;
                 }
@@ -124,10 +125,14 @@ pub async fn walk_directory(dir_path: &str, conn: &DbConn, force_write: &bool) {
                         // Extract folder name
                         let image_info = extract_image_info(&PathBuf::from(path));
                         let folder_name = image_info.folder_name.clone();
-                        let trim_folder_name = image_info.folder_name
+                        let trim_folder_name = image_info
+                            .folder_name
                             .to_lowercase()
                             .replace(" ", "-")
-                            .replace(&['/','#','&','(', ')', ',', '\"', '.', ';', ':', '\''][..], "");
+                            .replace(
+                                &['/', '#', '&', '(', ')', ',', '\"', '.', ';', ':', '\''][..],
+                                "",
+                            );
 
                         if image_info.w == 0 || image_info.h == 0 {
                             continue;
@@ -137,38 +142,33 @@ pub async fn walk_directory(dir_path: &str, conn: &DbConn, force_write: &bool) {
                             root: dir_path.to_string(),
                             path: path.to_str().unwrap().to_string(),
                             hash: hash_value,
-                            extention: image_info.file_extension,
+                            extention: image_info.file_extension.to_lowercase(),
                             filename: image_info.file_name,
                             folder_name: trim_folder_name,
                             width: image_info.w as i32,
                             height: image_info.h as i32,
                         };
-                        
+
                         match force_write {
-                            true => {
-                                match FileSchema::update(image, conn).await {
-                                    Ok(_) => {
-                                        if printed_dirs.insert(folder_name.clone()) {
-                                            println!("Folder: {} - ongoing update...", &folder_name);
-                                        }
+                            true => match FileSchema::update(image, conn).await {
+                                Ok(_) => {
+                                    if printed_dirs.insert(folder_name.clone()) {
+                                        println!("Folder: {} - ongoing update...", &folder_name);
                                     }
-                                    Err(_) => continue,
                                 }
-                            }
-                            false => {
-                                match FileSchema::insert(image, conn).await {
-                                    Ok(_) => {
-                                        if printed_dirs.insert(folder_name.clone()) {
-                                            println!("Folder: {} - ongoing inserts...", &folder_name);
-                                        }
+                                Err(_) => continue,
+                            },
+                            false => match FileSchema::insert(image, conn).await {
+                                Ok(_) => {
+                                    if printed_dirs.insert(folder_name.clone()) {
+                                        println!("Folder: {} - ongoing inserts...", &folder_name);
                                     }
-                                    Err(_) => continue,
                                 }
-                            }
+                                Err(_) => continue,
+                            },
                         }
                     }
-                    Some(_) => {
-                    }
+                    Some(_) => {}
                 }
             }
             Err(err) => {

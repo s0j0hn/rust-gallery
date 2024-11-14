@@ -5,6 +5,7 @@
     <title>Rusty-Images - Random</title>
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.0.1/css/bootstrap.min.css" integrity="sha512-Ez0cGzNzHR1tYAv56860NLspgUGuQw16GiOOp/I2LuTmpSK9xDXlgJz3XN4cnpXWDmkNBKXR/VDMTCnAaEooxA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.4.4/photoswipe.min.css" integrity="sha512-LFWtdAXHQuwUGH9cImO9blA3a3GfQNkpF2uRlhaOpSbDevNyK1rmAjs13mtpjvWyi+flP7zYWboqY+8Mkd42xA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
 <body >
@@ -17,9 +18,9 @@
                 {% for file in files %}
                 <figure itemprop="associatedMedia" itemscope itemtype="http://schema.org/ImageObject">
                     <!-- Link to the big image, not mandatory, but usefull when there is no JS -->
-                    <a href="/files/{{file.hash}}"  data-pswp-width="{{file.width}}" data-pswp-height="{{file.height}}" target="_blank" itemprop="contentUrl">
+                    <a href="/files/{{file.hash}}" data-pswp-tags="{{file.tags}}" data-pswp-width="{{file.width}}" data-pswp-height="{{file.height}}" target="_blank" itemprop="contentUrl">
                         <!-- Thumbnail -->
-                        <img hidden="hidden" itemprop="thumbnail" alt="{{file.hash}}"  fetchpriority="low" loading="lazy" src="/files/{{file.hash}}">
+                        <img hidden="hidden" data-pswp-hash="{{file.hash}}" data-pswp-tags="{{file.tags}}" data-pswp-folder="{{file.folder_name}}" itemprop="thumbnail" alt="{{file.filename}}.{{file.extention}}"  fetchpriority="low" loading="lazy" src="/files/{{file.hash}}">
                     </a>
                 </figure>
                 {% endfor %}
@@ -76,93 +77,34 @@
         </div>
     </div>
 </div>
-
-<script type="module">
-    import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.4.4/photoswipe-lightbox.esm.min.js';
-
-    window.addEventListener('DOMContentLoaded', function () {
-        const lightbox = new PhotoSwipeLightbox({
-            bgOpacity: 1,
-            gallery: '#my-gallery',
-            children: 'a',
-            preload: [2,4],
-            loop: false,
-            close: false,
-            pinchToClose: false,
-            closeOnVerticalDrag: false,
-            escKey: false,
-            mainClass: 'pswp-with-perma-preloader',
-            pswpModule: () => import('https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.4.4/photoswipe.esm.min.js')
-        });
-
-        lightbox.addFilter('numItems', (numItems) => {
-            return ++numItems;
-        });
-
-        lightbox.on('contentActivate', ({ content }) => {
-            if (content.index === lightbox.getNumItems() - 1) {
-                location.reload()
-            }
-        });
-
-        lightbox.on('contentLoad', (e) => {
-            const { content, isLazy } = e;
-
-            if (content.data.webpSrc) {
-                // prevent to stop the default behavior
-                e.preventDefault();
-
-                content.pictureElement = document.createElement('picture');
-
-                const sourceWebp = document.createElement('source');
-                sourceWebp.srcset = content.data.webpSrc;
-                sourceWebp.type = 'image/webp';
-
-                const sourceJpg = document.createElement('source');
-                sourceJpg.srcset = content.data.src;
-                sourceJpg.type = 'image/jpeg';
-
-                content.element = document.createElement('img');
-                content.element.src = content.data.src;
-                content.element.setAttribute('alt', '');
-                content.element.className = 'pswp__img';
-
-                content.pictureElement.appendChild(sourceWebp);
-                content.pictureElement.appendChild(sourceJpg);
-                content.pictureElement.appendChild(content.element);
-
-                content.state = 'loading';
-
-                if (content.element.complete) {
-                    content.onLoaded();
-                } else {
-                    content.element.onload = () => {
-                        content.onLoaded();
-                    };
-
-                    content.element.onerror = () => {
-                        content.onError();
-                    };
-                }
-            }
-        })
-
-        lightbox.addFilter('itemData', (itemData, index) => {
-            return {
-                ...itemData,
-                src: itemData.src + "/download",
-                msrc: itemData.msrc + "/download",
-            };
-        });
-        lightbox.on('close', () => {
-            location.reload()
-        });
-
-
-        lightbox.init();
-        lightbox.loadAndOpen(0);
-    });
-
-</script>
+<div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">New message</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="form-group">
+                        <label for="recipient-name" class="col-form-label">Recipient:</label>
+                        <input type="text" class="form-control" id="recipient-name">
+                    </div>
+                    <div class="form-group">
+                        <label for="message-text" class="col-form-label">Message:</label>
+                        <textarea class="form-control" id="message-text"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary">Send message</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script type="module" src="/js/gallery.js"></script>
 </body>
 </html>

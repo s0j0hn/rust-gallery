@@ -1,9 +1,9 @@
-use std::future::Future;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use rocket::futures::lock::Mutex;
 use rocket::tokio;
 use rocket::tokio::task::JoinHandle;
+use std::future::Future;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Arc;
 
 pub struct ThreadManager {
     pub task: Arc<Mutex<Option<JoinHandle<()>>>>,
@@ -22,13 +22,16 @@ impl ThreadManager {
     }
 
     pub fn spawn<T>(&self, future: T) -> JoinHandle<<T as Future>::Output>
-    where T: Future + Send + 'static, T::Output: Send + 'static, {
+    where
+        T: Future + Send + 'static,
+        T::Output: Send + 'static,
+    {
         // Increment the count before spawning the task
         self.thread_count.fetch_add(1, Ordering::SeqCst);
 
         let count = Arc::clone(&self.thread_count);
         let run_task = Arc::clone(&self.task);
-        
+
         return tokio::spawn(async move {
             let result = future.await;
             // Decrement the count after the task completes
