@@ -1,4 +1,4 @@
-use super::file_schema::FileSchema;
+use super::models::file::repository::FileSchema;
 
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 

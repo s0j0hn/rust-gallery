@@ -1,9 +1,11 @@
 use rocket::futures::lock::Mutex;
-use rocket::tokio;
+use rocket::{tokio, State};
 use rocket::tokio::task::JoinHandle;
 use std::future::Future;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use rocket_dyn_templates::Template;
+use crate::Context;
 
 pub struct ThreadManager {
     pub task: Arc<Mutex<Option<JoinHandle<()>>>>,
@@ -39,5 +41,39 @@ impl ThreadManager {
             run_task.lock().await.take();
             result
         });
+    }
+}
+
+#[get("/index/cancel_task")]
+pub async fn cancel_task(thread_manager: &State<ThreadManager>) -> Template {
+    thread_manager.should_cancel.store(true, Ordering::SeqCst);
+
+    let mut task_guard = thread_manager.task.lock().await;
+    if let Some(task) = task_guard.take() {
+        task.abort();
+
+        Template::render(
+            "tasks",
+            Context {
+                flash: Some(("error".into(), "Task cancellation requested.".into())),
+                files: vec![],
+                folders: vec![],
+                count_files: 0,
+                roots: vec![],
+                tags: vec![],
+            },
+        )
+    } else {
+        Template::render(
+            "tasks",
+            Context {
+                flash: Some(("error".into(), "Task not running".into())),
+                files: vec![],
+                folders: vec![],
+                count_files: 0,
+                roots: vec![],
+                tags: vec![],
+            },
+        )
     }
 }

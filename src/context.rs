@@ -1,10 +1,10 @@
 use crate::cache_files::StateFiles;
-use crate::file_schema::FileSchema;
 use crate::{Context, DbConn};
 use rocket::State;
+use crate::models::file::repository::FileSchema;
 
 impl Context {
-    pub async fn get_all(
+    pub async fn get_all_folders(
         conn: &DbConn,
         flash: Option<(String, String)>,
         folder: Option<&str>,

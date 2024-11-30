@@ -1,4 +1,4 @@
-import axios from "https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.7/esm/axios.js"
+import axios from "./axios.js"
 
 function assignTagsFolder(folder_name, tags) {
     let existing_tags = tags.replace(/[\[\]]/g, "").split(",").map(item => item.trim())
@@ -30,4 +30,33 @@ function assignTagsFolder(folder_name, tags) {
     }
 }
 
+function deleteFolder(folder_name) {
+    let result = confirm(`Are you sure to delete this folder: ${folder_name}?`);
+    if (result) {
+        let data = {
+            folder_name,
+        }
+        axios.post('/folders/delete', data, {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(function (response) {
+                // handle success
+                console.log(response);
+            })
+            .catch(function (error) {
+                // handle error
+                console.log(error.message);
+            })
+            .finally(function () {
+                // always executed
+            });
+    } else {
+        console.log("Adding tags cancelled");
+    }
+}
+
+
 window.assignTagsFolder = assignTagsFolder;
+window.deleteFolder = deleteFolder;

@@ -1,5 +1,5 @@
-use crate::file_schema::{FileSchema, Image};
-use crate::DbConn;
+use crate::models::file::repository::{FileSchema, Image};
+use crate::{AppConfig, Context, DbConn};
 use image::ImageReader;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
@@ -8,6 +8,11 @@ use std::io;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use walkdir::{DirEntry, WalkDir};
+use rocket::request::FlashMessage;
+use rocket_dyn_templates::Template;
+use rocket::State;
+use std::sync::atomic::Ordering;
+use crate::handlers::tasks::task_manager::ThreadManager;
 
 fn extract_image_info(path: &PathBuf) -> ImageInfo {
     let reader = ImageReader::open(path);
@@ -214,4 +219,79 @@ struct ImageInfo {
     folder_name: String,
     w: u32,
     h: u32,
+}
+
+#[get("/tags?<tag>")]
+pub async fn get_files_by_tag(flash: Option<FlashMessage<'_>>, conn: DbConn, tag: &str) -> Template {
+    let flash = flash.map(FlashMessage::into_inner);
+
+    Template::render("files", Context::random(&conn, flash, &500, None, None, Some(tag), None, &false, &0).await)
+}
+
+#[get("/type?<extension>")]
+pub async fn get_files_by_extension(flash: Option<FlashMessage<'_>>, conn: DbConn, extension: &str) -> Template {
+    let flash = flash.map(FlashMessage::into_inner);
+
+    Template::render("files", Context::random(&conn, flash, &500, None, None, None, Some(extension), &false, &0).await)
+}
+
+#[get("/index?<force>")]
+pub async fn index_files(
+    config: &State<AppConfig>,
+    flash: Option<FlashMessage<'_>>,
+    conn: DbConn,
+    thread_manager: &State<ThreadManager>,
+    force: Option<&str>,
+) -> Template {
+    let flash = flash.map(FlashMessage::into_inner);
+
+    let force_write = force
+        .unwrap_or("false")
+        .trim()
+        .parse::<bool>()
+        .unwrap_or(false);
+
+    let mut task_guard = thread_manager.task.lock().await;
+    let should_cancel = thread_manager.should_cancel.clone();
+    should_cancel.store(false, Ordering::SeqCst);
+
+    let images_dirs = config.images_dirs.clone();
+
+    if task_guard.is_some() {
+        return Template::render(
+            "tasks",
+            Context {
+                flash: Some(("error".into(), "Task is already running".into())),
+                files: vec![],
+                folders: vec![],
+                count_files: 0,
+                roots: vec![],
+                tags: vec![],
+            },
+        );
+    }
+
+    let task = thread_manager.spawn(async move {
+        if should_cancel.load(Ordering::SeqCst) {
+            return;
+        }
+
+        for images_dir in images_dirs {
+            walk_directory(&images_dir, &conn, &force_write).await
+        }
+    });
+
+    *task_guard = Some(task);
+
+    Template::render(
+        "tasks",
+        Context {
+            flash: flash,
+            files: vec![],
+            folders: vec![],
+            count_files: 0,
+            roots: vec![],
+            tags: vec![],
+        },
+    )
 }

@@ -1,28 +1,9 @@
 use diesel::{self, prelude::*, sql_types};
 use rocket::serde::json::serde_json;
-use serde::Serialize;
 use std::collections::HashSet;
-
-mod schema {
-    table! {
-        files {
-            id -> Nullable<Integer>,
-            path -> Text,
-            hash -> Text,
-            extention -> Text,
-            filename -> Text,
-            folder_name -> Text,
-            width -> Integer,
-            height -> Integer,
-            tags -> Nullable<Text>,
-            root -> Text,
-        }
-    }
-}
-
-use self::schema::files;
-
+use rocket::serde::Serialize;
 use crate::DbConn;
+use crate::models::file::model::files;
 
 #[derive(Serialize, AsChangeset, Queryable, Insertable, Identifiable, Clone, Hash, Eq, PartialEq)]
 #[serde(crate = "rocket::serde")]
@@ -87,7 +68,7 @@ impl FileSchema {
                 .limit(max_results)
                 .load::<FileSchema>(c)
         })
-        .await
+            .await
     }
     pub async fn all_by_folder(conn: &DbConn, folder_name: String) -> QueryResult<Vec<FileSchema>> {
         conn.run(move |c| {
@@ -95,7 +76,7 @@ impl FileSchema {
                 .filter(files::folder_name.eq(folder_name))
                 .load::<FileSchema>(c)
         })
-        .await
+            .await
     }
 
     pub async fn all_by_tag(conn: &DbConn, tag: String) -> QueryResult<Vec<FileSchema>> {
@@ -104,7 +85,7 @@ impl FileSchema {
                 .filter(files::tags.like("%".to_owned() + &tag + "%"))
                 .load::<FileSchema>(c)
         })
-        .await
+            .await
     }
 
     pub async fn all_hashes(conn: &DbConn) -> QueryResult<Vec<String>> {
@@ -139,7 +120,7 @@ impl FileSchema {
 
                 random_equal_files.extend(files);
             }
-            
+
             println!("Files length: {}", random_equal_files.len());
 
             Ok(random_equal_files.into_iter().collect())
@@ -149,7 +130,7 @@ impl FileSchema {
 
                 // Apply filters based on parameters
                 if tag != "*" {
-                    query = query.filter(files::tags.like("%".to_owned() + &tag + "%"));
+                    query = query.filter(files::tags.like("%\"".to_owned() + &tag + "\"%"));
                 }
 
                 if folder_name != "*" {
@@ -159,7 +140,7 @@ impl FileSchema {
                 if root != "*" {
                     query = query.filter(files::root.eq(root));
                 }
-                
+
                 if extension != "*" {
                     query = query.filter(files::extention.eq(extension))
                 }
@@ -209,14 +190,14 @@ impl FileSchema {
                 .filter(files::root.like(root))
                 .load::<FolderInfo>(c)
         })
-        .await
+            .await
     }
 
     pub async fn get_roots(conn: &DbConn) -> QueryResult<Vec<String>> {
         conn.run(move |c| {
             diesel::QueryDsl::distinct(files::table.select(files::root)).load::<String>(c)
         })
-        .await
+            .await
     }
 
     pub async fn get_all_tags(conn: &DbConn) -> QueryResult<Vec<String>> {
@@ -252,7 +233,7 @@ impl FileSchema {
 
             Ok(unique_tags.into_iter().collect())
         })
-        .await
+            .await
     }
 
     pub async fn count_all(conn: &DbConn) -> QueryResult<i64> {
@@ -266,7 +247,7 @@ impl FileSchema {
                 .count()
                 .get_result(c)
         })
-        .await
+            .await
     }
 
     pub async fn get_by_hash(hash: String, conn: &DbConn) -> QueryResult<Vec<FileSchema>> {
@@ -275,7 +256,7 @@ impl FileSchema {
                 .filter(files::hash.eq(hash))
                 .load::<FileSchema>(c)
         })
-        .await
+            .await
     }
 
     pub async fn get_by_path(path: String, conn: &DbConn) -> QueryResult<Vec<FileSchema>> {
@@ -284,7 +265,7 @@ impl FileSchema {
                 .filter(files::path.eq(path))
                 .load::<FileSchema>(c)
         })
-        .await
+            .await
     }
 
     pub async fn add_tags(
@@ -307,7 +288,7 @@ impl FileSchema {
                 .set(files::tags.eq(json_tags))
                 .execute(c)
         })
-        .await
+            .await
     }
 
     pub async fn add_tags_folder(
@@ -352,7 +333,16 @@ impl FileSchema {
                 .values(&t)
                 .execute(c)
         })
-        .await
+            .await
+    }
+
+    pub async fn delete_folder_with_name(name: String, conn: &DbConn) -> QueryResult<usize> {
+        conn.run(move |c| {
+            diesel::delete(files::table)
+                .filter(files::folder_name.eq(name))
+                .execute(c)
+        })
+            .await
     }
 
     /// Returns the number of affected rows: 1.
@@ -362,7 +352,7 @@ impl FileSchema {
                 .filter(files::id.eq(id))
                 .execute(c)
         })
-        .await
+            .await
     }
 
     pub async fn update(image: Image, conn: &DbConn) -> QueryResult<usize> {
@@ -386,7 +376,7 @@ impl FileSchema {
                 .set(&t)
                 .execute(c)
         })
-        .await
+            .await
     }
 
     /// Returns the number of affected rows.

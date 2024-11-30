@@ -1,6 +1,5 @@
-import 'https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.11.8/esm/index.min.js'
-import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.4.4/photoswipe-lightbox.esm.min.js';
-import axios from "https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.7/esm/axios.js"
+import PhotoSwipeLightbox from './5.4.4_photoswipe-lightbox.esm.js';
+import axios from "./axios.js"
 window.addEventListener('DOMContentLoaded', function () {
     const lightbox = new PhotoSwipeLightbox({
         bgOpacity: 1,
@@ -13,7 +12,7 @@ window.addEventListener('DOMContentLoaded', function () {
         closeOnVerticalDrag: false,
         escKey: false,
         mainClass: 'pswp-with-perma-preloader',
-        pswpModule: () => import('https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.4.4/photoswipe.esm.min.js')
+        pswpModule: () => import('./photoswipe.esm.js')
     });
 
     lightbox.on('uiRegister', function () {

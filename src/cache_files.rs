@@ -1,4 +1,3 @@
-use crate::file_schema::FileSchema;
 use moka::sync::Cache;
 use rocket::futures::lock::Mutex;
 use rocket::response::Responder;
@@ -6,6 +5,7 @@ use rocket::Request;
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::sync::Arc;
+use crate::models::file::repository::FileSchema;
 
 pub type ImageCache = Arc<Cache<String, Vec<u8>>>;
 

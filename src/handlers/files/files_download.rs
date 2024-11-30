@@ -1,11 +1,11 @@
 use crate::cache_files::{CachedImage, ImageCache};
-use crate::file_schema::FileSchema;
 use crate::DbConn;
 use image::{DynamicImage, ImageError, ImageFormat};
 use rocket::response::{Flash, Redirect};
 use rocket::State;
 use std::fs::File;
 use std::io::{Cursor, Read};
+use crate::models::file::repository::FileSchema;
 
 #[get("/<hash>/download?<width>&<height>")]
 pub async fn retrieve_file(
