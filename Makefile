@@ -1,6 +1,6 @@
 REGISTRY_HOST=docker.io
 USERNAME=s0j0hn
-NAME=rusty-images
+IMAGE=rusty-images
 
 SHELL=/bin/bash
 
@@ -11,10 +11,10 @@ DOCKER_FILE_PATH=Dockerfile
 
 
 docker-build:
-	docker build $(DOCKER_BUILD_ARGS) -t $(IMAGE):latest $(DOCKER_BUILD_CONTEXT) -f $(DOCKER_FILE_PATH)
+	docker build $(DOCKER_BUILD_ARGS) -t $(USERNAME)/$(IMAGE):latest $(DOCKER_BUILD_CONTEXT) -f $(DOCKER_FILE_PATH) --pull --no-cache
 
 docker-push: docker-build
-	docker push $(IMAGE):latest
+	docker push $(USERNAME)/$(IMAGE):latest
 
 
 help:           ## show this help.

@@ -31,6 +31,7 @@ use rocket_dyn_templates::Template;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use crate::handlers::configs::handler::update_config;
 
 #[database("sqlite_database")]
 pub struct DbConn(diesel::SqliteConnection);
@@ -123,6 +124,7 @@ fn rocket() -> _ {
         .attach(Template::fairing())
         .attach(AdHoc::on_ignite("Run Migrations", run_migrations))
         .mount("/", FileServer::new(relative!("static"), options))
+        .mount("/configs", routes![update_config])
         .mount("/beta", routes![beta_index])
         .mount("/tags", routes![assign_tag, assign_tag_folder])
         .mount(

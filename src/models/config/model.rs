@@ -1,6 +1,6 @@
 table! {
         config {
-            id -> Nullable<Integer>,
+            id -> Integer,
             random_equal_folders -> Integer,
         }
     }

@@ -9,7 +9,7 @@ debug = "none"
 
 [dependencies]
 rocket = { version = "0.5.1", features = ["json", "serde_json"] }
-diesel = { version = "2.2.5", features = ["sqlite", "r2d2", "serde_json"] }
+diesel = { version = "2.2.6", features = ["sqlite", "r2d2", "serde_json"] }
 diesel_migrations = {version = "2.2"}
 libsqlite3-sys = { version = "0.30", features = ["bundled"] }
 walkdir = "2.5.0"
