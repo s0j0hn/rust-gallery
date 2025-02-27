@@ -4,6 +4,19 @@ use rocket::State;
 use crate::models::file::repository::FileSchema;
 
 impl Context {
+    // Helper method to create an error context
+    fn error_context(msg: &str) -> Context {
+        error!("DB error: {msg}");
+        Context {
+            flash: Some(("error".into(), "Fail to access database.".into())),
+            files: vec![],
+            folders: vec![],
+            count_files: 0,
+            roots: vec![],
+            tags: vec![],
+        }
+    }
+
     pub async fn get_all_folders(
         conn: &DbConn,
         flash: Option<(String, String)>,
@@ -12,41 +25,39 @@ impl Context {
     ) -> Context {
         let folder_name = folder.unwrap_or("*");
         let mut lock = state_files.files.lock().await;
-        let folder_files = lock.entry(folder_name.to_string()).or_insert_with(Vec::new);
 
-        if folder_files.iter().count() > 0 {
-            Context {
-                flash,
-                files: folder_files.to_vec(),
-                folders: vec![],
-                count_files: 0,
-                roots: vec![],
-                tags: vec![],
+        // Check if we already have cached files for this folder
+        if let Some(folder_files) = lock.get(folder_name) {
+            if !folder_files.is_empty() {
+                return Context {
+                    flash,
+                    files: folder_files.clone(), // Clone is necessary here
+                    folders: vec![],
+                    count_files: 0,
+                    roots: vec![],
+                    tags: vec![],
+                };
             }
-        } else {
-            match FileSchema::all_by_folder(conn, folder.unwrap_or("*").to_string()).await {
-                Ok(mut files) => {
-                    folder_files.append(&mut files);
-                    Context {
-                        flash,
-                        files: folder_files.to_vec(),
-                        folders: vec![],
-                        count_files: 0,
-                        roots: vec![],
-                        tags: vec![],
-                    }
+        }
+
+        // If we reach here, we need to fetch from the database
+        match FileSchema::all_by_folder(conn, folder_name.to_string()).await {
+            Ok(files) => {
+                // Store in cache for future use
+                lock.entry(folder_name.to_string()).or_insert_with(Vec::new).extend(files.clone());
+
+                Context {
+                    flash,
+                    files,
+                    folders: vec![],
+                    count_files: 0,
+                    roots: vec![],
+                    tags: vec![],
                 }
-                Err(e) => {
-                    error!("DB File::all() error: {e}");
-                    Context {
-                        flash: Some(("error".into(), "Fail to access database.".into())),
-                        files: vec![],
-                        folders: vec![],
-                        count_files: 0,
-                        roots: vec![],
-                        tags: vec![],
-                    }
-                }
+            }
+            Err(e) => {
+                error!("DB File::all() error: {e}");
+                Self::error_context(&format!("File::all() error: {e}"))
             }
         }
     }
@@ -57,76 +68,44 @@ impl Context {
         search_by: &str,
         root: &str,
     ) -> Context {
-        match FileSchema::get_folders(conn, search_by.to_string(), root.to_string()).await {
-            Ok(mut folders_info) => match FileSchema::count_all(&conn).await {
-                Ok(count) => {
-                    folders_info.sort_by_key(|folder| folder.folder_name.to_lowercase());
-
-                    match FileSchema::get_roots(&conn).await {
-                        Ok(roots) => match FileSchema::get_all_tags(&conn).await {
-                            Ok(mut tags) => {
-                                tags.sort_by_key(|tag| tag.to_lowercase());
-
-                                Context {
-                                    flash,
-                                    files: vec![],
-                                    folders: folders_info,
-                                    count_files: count,
-                                    roots,
-                                    tags: tags,
-                                }
-                            }
-                            Err(e) => {
-                                error!("DB File::get_folders() error: {e}");
-                                Context {
-                                    flash: Some((
-                                        "error".into(),
-                                        "Fail to access database.".into(),
-                                    )),
-                                    files: vec![],
-                                    folders: vec![],
-                                    count_files: 0,
-                                    roots: vec![],
-                                    tags: vec![],
-                                }
-                            }
-                        },
-                        Err(e) => {
-                            error!("DB File::get_folders() error: {e}");
-                            Context {
-                                flash: Some(("error".into(), "Fail to access database.".into())),
-                                files: vec![],
-                                folders: vec![],
-                                count_files: 0,
-                                roots: vec![],
-                                tags: vec![],
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    error!("DB File::get_folders() error: {e}");
-                    Context {
-                        flash: Some(("error".into(), "Fail to access database.".into())),
-                        files: vec![],
-                        folders: vec![],
-                        count_files: 0,
-                        roots: vec![],
-                        tags: vec![],
-                    }
-                }
+        // Get folders and handle possible error
+        let folders_info = match FileSchema::get_folders(conn, search_by.to_string(), root.to_string()).await {
+            Ok(mut folders) => {
+                folders.sort_by_key(|folder| folder.folder_name.to_lowercase());
+                folders
             },
-            Err(e) => {
-                error!("DB File::get_folders() error: {e}");
-                Context {
-                    flash: Some(("error".into(), "Fail to access database.".into())),
-                    files: vec![],
-                    folders: vec![],
-                    count_files: 0,
-                    roots: vec![],
-                    tags: vec![],
-                }
-            }
+            Err(e) => return Self::error_context(&format!("File::get_folders() error: {e}")),
+        };
+
+        // Get file count
+        let count = match FileSchema::count_all(&conn).await {
+            Ok(count) => count,
+            Err(e) => return Self::error_context(&format!("File::count_all() error: {e}")),
+        };
+
+        // Get roots
+        let roots = match FileSchema::get_roots(&conn).await {
+            Ok(roots) => roots,
+            Err(e) => return Self::error_context(&format!("File::get_roots() error: {e}")),
+        };
+
+        // Get and sort tags
+        let tags = match FileSchema::get_all_tags(&conn).await {
+            Ok(mut tags) => {
+                tags.sort_by_key(|tag| tag.to_lowercase());
+                tags
+            },
+            Err(e) => return Self::error_context(&format!("File::get_all_tags() error: {e}")),
+        };
+
+        // Return the complete context
+        Context {
+            flash,
+            files: vec![],
+            folders: folders_info,
+            count_files: count,
+            roots,
+            tags,
         }
     }
 
@@ -141,35 +120,31 @@ impl Context {
         equal: &bool,
         folders_size: &usize,
     ) -> Context {
+        // Apply default values for optional parameters
+        let folder = folder.unwrap_or("*");
+        let root = root.unwrap_or("*");
+        let tag = tag.unwrap_or("*");
+        let extension = extension.unwrap_or("*");
+
         match FileSchema::random(
-            conn, 
-            folder.unwrap_or("*").to_string(), 
-            *size as i64, 
-            root.unwrap_or("*").to_string(),
-            tag.unwrap_or("*").to_string(),
-            extension.unwrap_or("*").to_string(),
+            conn,
+            folder.to_string(),
+            *size as i64,
+            root.to_string(),
+            tag.to_string(),
+            extension.to_string(),
             *equal,
             *folders_size as i64,
         ).await {
             Ok(files) => Context {
-                flash: flash,
+                flash,
                 files,
                 folders: vec![],
                 count_files: 0,
                 roots: vec![],
                 tags: vec![],
             },
-            Err(e) => {
-                error!("DB File::all() error: {e}");
-                Context {
-                    flash: Some(("error".into(), "Fail to access database.".into())),
-                    files: vec![],
-                    folders: vec![],
-                    count_files: 0,
-                    roots: vec![],
-                    tags: vec![],
-                }
-            }
+            Err(e) => Self::error_context(&format!("File::random() error: {e}")),
         }
     }
 }

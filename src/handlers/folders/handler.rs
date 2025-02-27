@@ -27,43 +27,37 @@ pub struct DeleteFolder {
     folder_name: String,
 }
 
-#[post("/assign", format = "json", data = "<data>")]
-pub async fn assign_tag(conn: DbConn, data: Json<TagAssign>) -> Value {
-    match FileSchema::add_tags(&conn, data.image_hash.clone(), data.tags.clone()).await {
-        Ok(_) => {
-            json!({ "status": "ok", "tags": data.tags })
-        }
+// Helper function for creating API responses
+fn create_response<T, E: std::fmt::Display>(result: &Result<T, E>, success_value: Value) -> Value {
+    match result {
+        Ok(_) => success_value,
         Err(e) => {
-            error!("Adding tags error: {e}");
-            json!({ "status": "error" })
+            error!("API error: {e}");
+            json!({ "status": "error", "message": format!("{}", e) })
         }
     }
+}
+
+#[post("/assign", format = "json", data = "<data>")]
+pub async fn assign_tag(conn: DbConn, data: Json<TagAssign>) -> Value {
+    let result = FileSchema::add_tags(&conn, data.image_hash.clone(), data.tags.clone()).await;
+    create_response(&result, json!({ "status": "ok", "tags": data.tags }))
 }
 
 #[post("/delete", format = "json", data = "<data>")]
 pub async fn delete_folder(conn: DbConn, data: Json<DeleteFolder>) -> Value {
-    match FileSchema::delete_folder_with_name(data.folder_name.clone(), &conn).await {
-        Ok(rows) => {
-            json!({ "status": "ok", "rows": rows })
-        }
-        Err(e) => {
-            error!("Adding tags error: {e}");
-            json!({ "status": "error" })
-        }
-    }
+    let result = FileSchema::delete_folder_with_name(data.folder_name.clone(), &conn).await;
+
+    // Extract the row count before passing the result to create_response
+    let affected_rows = result.as_ref().map_or(0, |count| *count);
+
+    create_response(&result, json!({ "status": "ok", "rows": affected_rows }))
 }
 
 #[post("/assign/folder", format = "json", data = "<data>")]
 pub async fn assign_tag_folder(conn: DbConn, data: Json<TagFolderAssign>) -> Value {
-    match FileSchema::add_tags_folder(&conn, data.folder_name.clone(), data.tags.clone()).await {
-        Ok(_) => {
-            json!({ "status": "ok", "tags": data.tags })
-        }
-        Err(e) => {
-            error!("Adding tags error: {e}");
-            json!({ "status": "error" })
-        }
-    }
+    let result = FileSchema::add_tags_folder(&conn, data.folder_name.clone(), data.tags.clone()).await;
+    create_response(&result, json!({ "status": "ok", "tags": data.tags }))
 }
 
 #[get("/?<folder>")]
@@ -81,6 +75,17 @@ pub async fn get_folders(
     )
 }
 
+// Helper function to format search pattern
+fn format_search_pattern(pattern: &str) -> String {
+    if pattern.starts_with('%') && pattern.ends_with('%') {
+        // Remove percent signs if they're already there
+        pattern.trim_matches('%').to_string()
+    } else {
+        // Add percent signs for SQL LIKE pattern
+        format!("%{}%", pattern)
+    }
+}
+
 #[get("/?<searchby>&<root>")]
 pub async fn retrieve_folders(
     flash: Option<FlashMessage<'_>>,
@@ -89,27 +94,17 @@ pub async fn retrieve_folders(
     root: Option<&str>,
 ) -> Template {
     let flash = flash.map(FlashMessage::into_inner);
-    let search_b = searchby.unwrap_or("_");
-    let root = root.unwrap_or("_");
 
-    match search_b.starts_with("%") && search_b.ends_with("%") {
-        true => {
-            let search_bs = &search_b.replace("%", "");
-            let root_by = &root.replace("%", "");
+    // Default to "_" if parameters are not provided
+    let search_term = searchby.unwrap_or("_");
+    let root_term = root.unwrap_or("_");
 
-            Template::render(
-                "index",
-                Context::get_folders(&conn, flash, search_bs, root_by).await,
-            )
-        }
-        false => {
-            let search_by = "%".to_owned() + search_b + "%";
-            let root_by = "%".to_owned() + root + "%";
+    // Format search patterns for both search and root
+    let search_pattern = format_search_pattern(search_term);
+    let root_pattern = format_search_pattern(root_term);
 
-            Template::render(
-                "index",
-                Context::get_folders(&conn, flash, &search_by, &root_by).await,
-            )
-        }
-    }
+    Template::render(
+        "index",
+        Context::get_folders(&conn, flash, &search_pattern, &root_pattern).await,
+    )
 }

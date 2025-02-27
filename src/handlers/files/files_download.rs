@@ -2,7 +2,7 @@
 use crate::cache_files::{CachedImage, ImageCache};
 use crate::DbConn;
 use crate::models::file::repository::FileSchema;
-use image::{DynamicImage, ImageError, ImageFormat};
+use image::{DynamicImage, ImageFormat};
 use rocket::response::{Flash, Redirect};
 use rocket::State;
 use std::fs::File;

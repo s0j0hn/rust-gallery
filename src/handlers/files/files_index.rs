@@ -130,6 +130,7 @@ pub async fn walk_directory(dir_path: &str, conn: &DbConn, force_write: &bool) {
                         // Extract folder name
                         let image_info = extract_image_info(&PathBuf::from(path));
                         let folder_name = image_info.folder_name.clone();
+                        // remove the not wanted chars in the folder name
                         let trim_folder_name = image_info
                             .folder_name
                             .to_lowercase()

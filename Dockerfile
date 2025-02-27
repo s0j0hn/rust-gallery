@@ -4,7 +4,7 @@ FROM rust:1-slim-bookworm AS build
 ARG pkg=rusty-images
 
 WORKDIR /build
-
+RUN rustup default nightly-2025-02-17 # Replace with your local version (check with: rustc --version)
 COPY . .
 
 RUN --mount=type=cache,target=/build/target \

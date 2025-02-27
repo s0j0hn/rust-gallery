@@ -11,7 +11,7 @@ DOCKER_FILE_PATH=Dockerfile
 
 
 docker-build:
-	docker build $(DOCKER_BUILD_ARGS) -t $(USERNAME)/$(IMAGE):latest $(DOCKER_BUILD_CONTEXT) -f $(DOCKER_FILE_PATH) --pull --no-cache
+	docker build $(DOCKER_BUILD_ARGS) -t $(USERNAME)/$(IMAGE):latest $(DOCKER_BUILD_CONTEXT) -f $(DOCKER_FILE_PATH)
 
 docker-push: docker-build
 	docker push $(USERNAME)/$(IMAGE):latest

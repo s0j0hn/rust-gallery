@@ -80,9 +80,10 @@ impl FileSchema {
     }
 
     pub async fn all_by_tag(conn: &DbConn, tag: String) -> QueryResult<Vec<FileSchema>> {
+        let search_pattern = format!("%{}%", tag);
         conn.run(move |c| {
             files::table
-                .filter(files::tags.like("%".to_owned() + &tag + "%"))
+                .filter(files::tags.like(search_pattern))
                 .load::<FileSchema>(c)
         })
             .await
@@ -202,32 +203,22 @@ impl FileSchema {
 
     pub async fn get_all_tags(conn: &DbConn) -> QueryResult<Vec<String>> {
         conn.run(|c| {
-            // First, get all non-null tag columns
+            // Get all non-null tag columns
             let all_tags: Vec<Option<String>> = files::table
                 .select(files::tags)
                 .filter(files::tags.is_not_null())
                 .load(c)?;
 
-            // Now process the tags
+            // Process the tags more efficiently
             let mut unique_tags = HashSet::new();
 
             for tags_option in all_tags {
-                match tags_option {
-                    Some(tags_json) => match serde_json::from_str::<Vec<String>>(&tags_json) {
-                        Ok(json_value) => match json_value {
-                            tags_array => {
-                                for tag in tags_array {
-                                    match tag.as_str() {
-                                        tag_str => {
-                                            unique_tags.insert(tag_str.to_string());
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        Err(..) => {}
-                    },
-                    None => {}
+                if let Some(tags_json) = tags_option {
+                    if let Ok(tags_array) = serde_json::from_str::<Vec<String>>(&tags_json) {
+                        for tag in tags_array {
+                            unique_tags.insert(tag);
+                        }
+                    }
                 }
             }
 
@@ -251,6 +242,7 @@ impl FileSchema {
     }
 
     pub async fn get_by_hash(hash: String, conn: &DbConn) -> QueryResult<Vec<FileSchema>> {
+        let hash = hash; // Take ownership here for clarity
         conn.run(move |c| {
             files::table
                 .filter(files::hash.eq(hash))
@@ -268,21 +260,19 @@ impl FileSchema {
             .await
     }
 
+    fn process_tags(tags: Vec<String>) -> String {
+        let unique_tags: HashSet<&str> = tags.iter().map(|t| t.trim()).collect();
+        let unique_tags_vec: Vec<&str> = unique_tags.into_iter().collect();
+        serde_json::to_string(&unique_tags_vec).unwrap_or_else(|_| "[]".to_string())
+    }
+
     pub async fn add_tags(
         conn: &DbConn,
         file_hash: String,
         new_tags: Vec<String>,
     ) -> QueryResult<usize> {
+        let json_tags = Self::process_tags(new_tags);
         conn.run(move |c| {
-            // Convert Vec<String> to HashSet to remove duplicates
-            let unique_tags: HashSet<&str> = new_tags.iter().map(|t| t.trim()).collect();
-
-            // Convert HashSet back to Vec for consistent ordering
-            let unique_tags_vec: Vec<&str> = unique_tags.into_iter().collect();
-
-            let json_tags =
-                serde_json::to_string(&unique_tags_vec).unwrap_or_else(|_| "[]".to_string());
-
             diesel::update(files::table)
                 .filter(files::hash.eq(file_hash))
                 .set(files::tags.eq(json_tags))
@@ -296,16 +286,8 @@ impl FileSchema {
         folder_name: String,
         new_tags: Vec<String>,
     ) -> QueryResult<usize> {
+        let json_tags = Self::process_tags(new_tags);
         conn.run(move |c| {
-            // Convert Vec<String> to HashSet to remove duplicates
-            let unique_tags: HashSet<&str> = new_tags.iter().map(|t| t.trim()).collect();
-
-            // Convert HashSet back to Vec for consistent ordering
-            let unique_tags_vec: Vec<&str> = unique_tags.into_iter().collect();
-
-            let json_tags =
-                serde_json::to_string(&unique_tags_vec).unwrap_or_else(|_| "[]".to_string());
-
             diesel::update(files::table)
                 .filter(files::folder_name.eq(folder_name))
                 .set(files::tags.eq(json_tags))
@@ -314,7 +296,7 @@ impl FileSchema {
             .await
     }
 
-    /// Returns the number of affected rows: 1.
+        /// Returns the number of affected rows: 1.
     pub async fn insert(image: Image, conn: &DbConn) -> QueryResult<usize> {
         conn.run(move |c| {
             let t = FileSchema {
