@@ -211,7 +211,7 @@ impl FileSchema {
     ) -> QueryResult<Vec<FolderRootsInfo>> {
         conn.run(move |c| {
             files::table
-                .group_by((files::root))
+                .group_by(files::root)
                 .select((
                     diesel::dsl::count(files::root),
                     files::root,

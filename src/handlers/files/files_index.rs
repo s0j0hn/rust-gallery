@@ -4,7 +4,7 @@ use image::ImageReader;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::fs::File;
-use std::io;
+use std::{fs, io};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use walkdir::{DirEntry, WalkDir};
@@ -12,6 +12,9 @@ use rocket::request::FlashMessage;
 use rocket_dyn_templates::Template;
 use rocket::State;
 use std::sync::atomic::Ordering;
+use std::time::{SystemTime, UNIX_EPOCH};
+use rocket::serde::json::{Json};
+use rocket::serde::Serialize;
 use crate::handlers::tasks::task_manager::ThreadManager;
 
 fn extract_image_info(path: &PathBuf) -> ImageInfo {
@@ -63,7 +66,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
-pub async fn walk_directory(dir_path: &str, conn: &DbConn, force_write: &bool) {
+pub async fn walk_directory(dir_path: &str, conn: &DbConn, force_write: &bool, last_indexed: Option<u64>) {
     println!("************************");
     println!("STARTED INDEXING {}...", dir_path);
     println!("************************");
@@ -103,6 +106,21 @@ pub async fn walk_directory(dir_path: &str, conn: &DbConn, force_write: &bool) {
 
                 if !is_image(path) {
                     continue;
+                }
+
+                // Skip files that haven't been modified since last indexation
+                if !force_write && last_indexed.is_some() {
+                    if let Ok(metadata) = fs::metadata(path) {
+                        if let Ok(modified_time) = metadata.modified() {
+                            if let Ok(modified_since_epoch) = modified_time.duration_since(UNIX_EPOCH) {
+                                let modified_secs = modified_since_epoch.as_secs();
+                                if modified_secs <= last_indexed.unwrap() {
+                                    // File hasn't been modified since last indexation
+                                    continue;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 let file_name = path
@@ -236,16 +254,23 @@ pub async fn get_files_by_extension(flash: Option<FlashMessage<'_>>, conn: DbCon
     Template::render("files", Context::random(&conn, flash, &500, None, None, None, Some(extension), &false, &0).await)
 }
 
-#[get("/index?<force>")]
+
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+pub struct JsonTaskIndexResponse {
+    status: String,
+    task_running: bool,
+    message: String,
+    last_indexed: Option<u64>, // Added field for last indexed timestamp
+}
+
+#[get("/task/index?<force>")]
 pub async fn index_files(
     config: &State<AppConfig>,
-    flash: Option<FlashMessage<'_>>,
     conn: DbConn,
     thread_manager: &State<ThreadManager>,
     force: Option<&str>,
-) -> Template {
-    let flash = flash.map(FlashMessage::into_inner);
-
+) -> Json<JsonTaskIndexResponse> {
     let force_write = force
         .unwrap_or("false")
         .trim()
@@ -253,46 +278,65 @@ pub async fn index_files(
         .unwrap_or(false);
 
     let mut task_guard = thread_manager.task.lock().await;
-    let should_cancel = thread_manager.should_cancel.clone();
-    should_cancel.store(false, Ordering::SeqCst);
+    let task_running = task_guard.is_some();
 
-    let images_dirs = config.images_dirs.clone();
+    // If task is not running, start a new one
+    if !task_running {
+        let should_cancel = thread_manager.should_cancel.clone();
+        should_cancel.store(false, Ordering::SeqCst);
 
-    if task_guard.is_some() {
-        return Template::render(
-            "tasks",
-            Context {
-                flash: Some(("error".into(), "Task is already running".into())),
-                files: vec![],
-                folders: vec![],
-                count_files: 0,
-                roots: vec![],
-                tags: vec![],
-            },
-        );
+        let images_dirs = config.images_dirs.clone();
+
+        // Get the last indexed timestamp (don't use if force_write is true)
+        let last_indexed = if force_write {
+            None
+        } else {
+            // Safely get the current value
+            match thread_manager.last_indexed.lock().await.as_ref() {
+                Some(timestamp) => Some(*timestamp),
+                None => None
+            }
+        };
+
+        // Clone the Mutex/Arc instead of taking a reference
+        let last_indexed_mutex = thread_manager.last_indexed.clone();
+
+        let task = thread_manager.spawn(async move {
+            if should_cancel.load(Ordering::SeqCst) {
+                return;
+            }
+
+            for images_dir in images_dirs {
+                walk_directory(&images_dir, &conn, &force_write, last_indexed).await
+            }
+
+            // Update the last_indexed timestamp after completion
+            let current_time = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+
+            *last_indexed_mutex.lock().await = Some(current_time);
+        });
+
+        *task_guard = Some(task);
     }
 
-    let task = thread_manager.spawn(async move {
-        if should_cancel.load(Ordering::SeqCst) {
-            return;
-        }
+    // For the response, get the current last_indexed value
+    let last_indexed_value = match *thread_manager.last_indexed.lock().await {
+        Some(timestamp) => Some(timestamp),
+        None => None
+    };
 
-        for images_dir in images_dirs {
-            walk_directory(&images_dir, &conn, &force_write).await
-        }
-    });
-
-    *task_guard = Some(task);
-
-    Template::render(
-        "tasks",
-        Context {
-            flash: flash,
-            files: vec![],
-            folders: vec![],
-            count_files: 0,
-            roots: vec![],
-            tags: vec![],
+    // Return JSON response with task status
+    Json(JsonTaskIndexResponse {
+        status: "success".to_string(),
+        task_running,
+        message: if task_running {
+            "Indexation task is already running".to_string()
+        } else {
+            "Started new indexation task".to_string()
         },
-    )
+        last_indexed: last_indexed_value
+    })
 }

@@ -5,8 +5,8 @@ use rocket::tokio::task::JoinHandle;
 use std::future::Future;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use rocket_dyn_templates::Template;
-use crate::Context;
+use rocket::serde::json::Json;
+use rocket::serde::Serialize;
 
 /// Manages background task execution and cancellation
 pub struct ThreadManager {
@@ -14,6 +14,7 @@ pub struct ThreadManager {
     pub task: Arc<Mutex<Option<JoinHandle<()>>>>,
     // Flag to signal that the current task should be cancelled
     pub should_cancel: Arc<AtomicBool>,
+    pub last_indexed: Arc<Mutex<Option<u64>>>, // Timestamp of last indexation
 }
 
 impl Default for ThreadManager {
@@ -28,6 +29,7 @@ impl ThreadManager {
         Self {
             should_cancel: Arc::new(AtomicBool::new(false)),
             task: Arc::new(Mutex::new(None)),
+            last_indexed: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -66,46 +68,45 @@ impl ThreadManager {
     }
 }
 
-/// Web endpoint to cancel the currently running task
-#[get("/index/cancel_task")]
-pub async fn cancel_task(thread_manager: &State<ThreadManager>) -> Template {
-    // Request cancellation first to set the flag
-    thread_manager.request_cancellation();
+// Define a response struct for the cancel_task endpoint
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+pub struct JsonTaskCancelResponse {
+    status: String,
+    message: String,
+    task_running: bool
+}
 
-    let was_running = {
-        let mut task_guard = thread_manager.task.lock().await;
+#[get("/task/cancel")]
+pub async fn cancel_task(
+    thread_manager: &State<ThreadManager>,
+) -> Json<JsonTaskCancelResponse> {
+    let mut task_guard = thread_manager.task.lock().await;
+
+    if task_guard.is_some() {
+        // Signal the task to cancel
+        thread_manager.should_cancel.store(true, Ordering::SeqCst);
+
+        // Wait for a short time to allow the task to respond to cancellation
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+        // Abort the task (this is a forceful way to stop it)
         if let Some(task) = task_guard.take() {
-            // Abort the task and drop the guard
             task.abort();
-            true
-        } else {
-            false
         }
-    };
 
-    if was_running {
-        Template::render(
-            "tasks",
-            Context {
-                flash: Some(("success".into(), "Task cancellation requested.".into())),
-                files: vec![],
-                folders: vec![],
-                count_files: 0,
-                roots: vec![],
-                tags: vec![],
-            },
-        )
+        // Return success JSON response
+        Json(JsonTaskCancelResponse {
+            status: "success".to_string(),
+            message: "Indexation task has been canceled".to_string(),
+            task_running: false
+        })
     } else {
-        Template::render(
-            "tasks",
-            Context {
-                flash: Some(("info".into(), "No task was running.".into())),
-                files: vec![],
-                folders: vec![],
-                count_files: 0,
-                roots: vec![],
-                tags: vec![],
-            },
-        )
+        // No task was running
+        Json(JsonTaskCancelResponse {
+            status: "info".to_string(),
+            message: "No indexation task was running".to_string(),
+            task_running: false
+        })
     }
 }

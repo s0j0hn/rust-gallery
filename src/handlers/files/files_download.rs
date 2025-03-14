@@ -9,6 +9,27 @@ use rocket::{Either, State};
 use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::Path;
+use rocket::http::ContentType;
+use std::time::Duration;
+
+// Helper function to determine content type from file extension
+fn get_content_type(extension: &str) -> ContentType {
+    match extension.to_lowercase().as_str() {
+        "png" => ContentType::PNG,
+        "jpg" | "jpeg" => ContentType::JPEG,
+        "gif" => ContentType::GIF,
+        "webp" => ContentType::new("image", "webp"),
+        "avif" => ContentType::new("image", "avif"),
+        _ => ContentType::JPEG, // Default
+    }
+}
+
+// Helper function to create CachedImage with caching headers
+fn create_cached_image(data: Vec<u8>, extension: &str, cache_duration_secs: u64) -> CachedImage {
+    let content_type = get_content_type(extension);
+    let cache_duration = Duration::from_secs(cache_duration_secs);
+    CachedImage::with_cache(data, content_type, cache_duration)
+}
 
 #[get("/<hash>/download?<width>&<height>")]
 pub async fn retrieve_file(
@@ -37,8 +58,9 @@ pub async fn retrieve_file(
                         image_height as u32,
                         image::imageops::FilterType::Lanczos3,
                     );
+                    // For resized images
                     let buffer = create_image_buffer(&f_schema, &resized_img);
-                    Either::Left(CachedImage(buffer))
+                    Either::Left(create_cached_image(buffer, &f_schema.extention, 86400)) // Cache for 1 day
                 }
                 Err(e) => {
                     return Either::Right(status::Custom(
@@ -52,7 +74,7 @@ pub async fn retrieve_file(
 
     // Otherwise return the original file
     match read_file_to_buffer(&f_schema.path) {
-        Ok(buffer) => Either::Left(CachedImage(buffer)),
+        Ok(buffer) => Either::Left(create_cached_image(buffer, &f_schema.extention, 86400)), // Cache for 1 day,
         Err(e) => {
             return Either::Right(status::Custom(
                 Status::InternalServerError,
@@ -75,7 +97,8 @@ pub async fn get_thumbnail_folder(
 
     // Return cached thumbnail if available
     if let Some(data) = cache.get(&cache_key) {
-        return Either::Left(CachedImage(data));
+        let extension = "jpg"; // Default extension
+        return Either::Left(create_cached_image(data, extension, 604800)); // Cache for 1 week
     }
 
     // Get random file from folder
@@ -130,11 +153,11 @@ pub async fn get_thumbnail_folder(
                     image_height,
                     image::imageops::FilterType::Lanczos3,
                 );
+                
                 let buffer = create_image_buffer(f_schema, &resized_img);
-
-                // Cache the buffer
                 cache.insert(cache_key, buffer.clone());
-                return Either::Left(CachedImage(buffer));
+                return Either::Left(create_cached_image(buffer, &f_schema.extention, 604800)); // Cache for 1 week
+
             }
             Err(err) => {
                 // Log the error but don't expose details to user
@@ -149,7 +172,7 @@ pub async fn get_thumbnail_folder(
 
     // Return original file if no resizing needed
     match read_file_to_buffer(&f_schema.path) {
-        Ok(buffer) => Either::Left(CachedImage(buffer)),
+        Ok(buffer) => Either::Left(create_cached_image(buffer, &f_schema.extention, 604800)), // Cache for 1 week`
         Err(_) => Either::Right(status::Custom(
             Status::InternalServerError,
             Json(json!({"error": "File not found or cannot be read"})),
@@ -169,7 +192,8 @@ pub async fn get_thumbnail_photo(
 
     // Return cached thumbnail if available
     if let Some(data) = cache.get(&cache_key) {
-        return Either::Left(CachedImage(data));
+        let extension = "jpg"; // Default extension
+        return Either::Left(create_cached_image(data, extension, 604800)); // Cache for 1 week
     }
 
     // Get random file from folder
@@ -203,11 +227,11 @@ pub async fn get_thumbnail_photo(
                     image_height,
                     image::imageops::FilterType::Lanczos3,
                 );
+                
                 let buffer = create_image_buffer(&f_schema, &resized_img);
-
-                // Cache the buffer
                 cache.insert(cache_key, buffer.clone());
-                return Either::Left(CachedImage(buffer));
+                return Either::Left(create_cached_image(buffer, &f_schema.extention, 604800)); // Cache for 1 week
+
             }
             Err(err) => {
                 // Log the error but don't expose details to user
@@ -222,7 +246,7 @@ pub async fn get_thumbnail_photo(
 
     // Return original file if no resizing needed
     match read_file_to_buffer(&f_schema.path) {
-        Ok(buffer) => Either::Left(CachedImage(buffer)),
+        Ok(buffer) => Either::Left(create_cached_image(buffer, &f_schema.extention, 604800)), // Cache for 1 week        
         Err(_) => Either::Right(status::Custom(
             Status::InternalServerError,
             Json(json!({"error": "File not found or cannot be read"})),

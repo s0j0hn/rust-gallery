@@ -39,7 +39,7 @@ use models::file::repository::{FileSchema, FolderInfo};
 // Application state and dependencies
 use cache_files::{ImageCache, StateFiles};
 use moka::sync::Cache;
-use rocket::{fairing::AdHoc, fs::{relative, FileServer, Options}, request::FlashMessage, serde::{Deserialize, Serialize}, Build, Rocket};
+use rocket::{fairing::AdHoc, fs::{relative, FileServer, Options}, serde::{Deserialize, Serialize}, Build, Rocket};
 use rocket_dyn_templates::Template;
 use std::{
     collections::HashMap,
@@ -92,34 +92,34 @@ async fn run_migrations(rocket: Rocket<Build>) -> Rocket<Build> {
 /// Main route handler for the beta interface
 ///
 /// Handles search parameters and root folder filtering
-#[get("/?<searchby>&<root>")]
-async fn beta_index(
-    flash: Option<FlashMessage<'_>>,
-    conn: DbConn,
-    searchby: Option<&str>,
-    root: Option<&str>,
-) -> Template {
-    let flash = flash.map(FlashMessage::into_inner);
-
-    // Process search parameters with defaults
-    let search_term = searchby.unwrap_or("_");
-    let root_term = root.unwrap_or("_");
-
-    // Determine if we're doing an exact search or a pattern-matching search
-    let (search_pattern, root_pattern): (String, String) = if search_term.starts_with("%") && search_term.ends_with("%") {
-        // Exact search (remove % characters)
-        (search_term.trim_matches('%').to_string(), root_term.trim_matches('%').to_string())
-    } else {
-        // Pattern matching search (add % for SQL LIKE)
-        (format!("%{}%", search_term), format!("%{}%", root_term))
-    };
-
-    // Render template with folder context
-    Template::render(
-        "beta",
-        Context::get_folders(&conn, flash, &search_pattern, &root_pattern).await,
-    )
-}
+// #[get("/?<searchby>&<root>")]
+// async fn beta_index(
+//     flash: Option<FlashMessage<'_>>,
+//     conn: DbConn,
+//     searchby: Option<&str>,
+//     root: Option<&str>,
+// ) -> Template {
+//     let flash = flash.map(FlashMessage::into_inner);
+// 
+//     // Process search parameters with defaults
+//     let search_term = searchby.unwrap_or("_");
+//     let root_term = root.unwrap_or("_");
+// 
+//     // Determine if we're doing an exact search or a pattern-matching search
+//     let (search_pattern, root_pattern): (String, String) = if search_term.starts_with("%") && search_term.ends_with("%") {
+//         // Exact search (remove % characters)
+//         (search_term.trim_matches('%').to_string(), root_term.trim_matches('%').to_string())
+//     } else {
+//         // Pattern matching search (add % for SQL LIKE)
+//         (format!("%{}%", search_term), format!("%{}%", root_term))
+//     };
+// 
+//     // Render template with folder context
+//     Template::render(
+//         "beta",
+//         Context::get_folders(&conn, flash, &search_pattern, &root_pattern).await,
+//     )
+// }
 
 /// Application configuration from Rocket.toml
 #[derive(Debug, Deserialize)]
@@ -190,7 +190,7 @@ fn rocket() -> _ {
 
         // API routes, organized by functionality
         .mount("/configs", routes![update_config])
-        .mount("/beta", routes![beta_index])
+        //.mount("/beta", routes![beta_index])
         .mount("/tags", routes![assign_tag, assign_tag_folder, get_all_tags])
         .mount(
             "/files",
