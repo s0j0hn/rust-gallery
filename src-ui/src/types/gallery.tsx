@@ -17,6 +17,19 @@ export interface JsonResponseTags {
     tags: string[]
 }
 
+export interface JsonResponseIndex {
+    status: string
+    task_running: boolean
+    message: string
+    last_indexed?: number
+}
+
+export interface JsonResponseCancelTask {
+    status: 'info' | 'success'
+    task_running: boolean
+    message: string
+}
+
 export interface JsonResponse<T> {
     total: number
     page: number

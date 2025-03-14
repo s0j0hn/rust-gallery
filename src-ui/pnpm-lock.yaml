@@ -35,6 +35,9 @@ importers:
       axios:
         specifier: ^1.8.3
         version: 1.8.3
+      dompurify:
+        specifier: ^3.2.4
+        version: 3.2.4
       lucide-react:
         specifier: ^0.481.0
         version: 0.481.0(react@19.0.0)

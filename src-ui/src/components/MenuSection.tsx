@@ -31,6 +31,7 @@ const MenuSection: React.FC<MenuSectionProps> = ({
         setSelectedRoot,
         isIndexing,
         startIndexation,
+        cancelIndexation,
     } = useFolders()
     const navigate = useNavigate()
 
@@ -110,6 +111,19 @@ const MenuSection: React.FC<MenuSectionProps> = ({
                                 Index New Photos
                             </>
                         )}
+                    </button>
+
+                    {/* New cancel indexation button */}
+                    <button
+                        onClick={cancelIndexation}
+                        disabled={!isIndexing}
+                        className={`px-4 py-2 rounded-md transition-colors ${
+                            !isIndexing
+                                ? 'bg-gray-300 cursor-not-allowed'
+                                : 'bg-red-500 hover:bg-red-600 text-white'
+                        }`}
+                    >
+                        Cancel Indexation
                     </button>
 
                     <button

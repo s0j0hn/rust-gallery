@@ -4,6 +4,7 @@ import React, {
     useCallback,
     useEffect,
     useState,
+    useRef,
 } from 'react'
 import { Folder, Root } from '../types/gallery'
 import { api } from '../services/api'
@@ -24,6 +25,7 @@ interface FolderContextType {
     deleteFolder: (folderTitle: string) => Promise<void>
     isIndexing: boolean
     startIndexation: () => Promise<void>
+    cancelIndexation: () => Promise<void> // New function to cancel indexation
     hasMore: boolean
     loadMoreFolders: () => void
     page: number
@@ -66,6 +68,7 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
     const [isIndexing, setIsIndexing] = useState<boolean>(false)
     const [page, setPage] = useState<number>(1)
     const [hasMore, setHasMore] = useState<boolean>(true)
+    const checkIntervalRef = useRef<NodeJS.Timeout | null>(null)
     const FOLDERS_PER_PAGE = 8
     const location = useLocation()
     const navigate = useNavigate()
@@ -79,6 +82,32 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
         },
         [location, navigate]
     )
+
+    // Function to check indexation status
+    const checkIndexationStatus = useCallback(async () => {
+        try {
+            const data = await api.indexation.indexPhotos()
+            setIsIndexing(data.task_running)
+
+            if (!data.task_running && checkIntervalRef.current) {
+                clearInterval(checkIntervalRef.current)
+                checkIntervalRef.current = null
+                await refreshFolders()
+            }
+        } catch (err) {
+            console.error('Failed to check indexation status:', err)
+        }
+    }, [])
+
+    // Clear interval on unmount
+    useEffect(() => {
+        return () => {
+            if (checkIntervalRef.current) {
+                clearInterval(checkIntervalRef.current)
+                checkIntervalRef.current = null
+            }
+        }
+    }, [])
 
     // Fetch folders with pagination and search
     const fetchFolders = useCallback(
@@ -227,15 +256,48 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
 
     // Start indexation
     const startIndexation = useCallback(async () => {
+        // Clear any existing interval
+        if (checkIntervalRef.current) {
+            clearInterval(checkIntervalRef.current)
+            checkIntervalRef.current = null
+        }
+
         setIsIndexing(true)
         try {
-            await api.indexation.indexPhotos()
-            await refreshFolders()
+            const data = await api.indexation.indexPhotos()
+            if (!data.task_running) {
+                // Set up interval to check status every 30 seconds
+                checkIntervalRef.current = setInterval(
+                    checkIndexationStatus,
+                    30000
+                )
+                await refreshFolders()
+            }
+            await new Promise((r) => setTimeout(r, 2000))
         } catch (err) {
             console.error('Indexation failed:', err)
-            throw err
-        } finally {
             setIsIndexing(false)
+            throw err
+        }
+    }, [refreshFolders, checkIndexationStatus])
+
+    // Cancel indexation
+    const cancelIndexation = useCallback(async () => {
+        try {
+            // Using the correct API endpoint to cancel the indexation task
+            await api.indexation.cancelIndexTask()
+
+            // Clear the check interval
+            if (checkIntervalRef.current) {
+                clearInterval(checkIntervalRef.current)
+                checkIntervalRef.current = null
+            }
+
+            setIsIndexing(false)
+            await refreshFolders()
+        } catch (err) {
+            console.error('Failed to cancel indexation:', err)
+            throw err
         }
     }, [refreshFolders])
 
@@ -274,6 +336,7 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
                 deleteFolder,
                 isIndexing,
                 startIndexation,
+                cancelIndexation, // Add the new cancelIndexation function
                 hasMore,
                 loadMoreFolders,
                 page,
