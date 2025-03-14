@@ -285,7 +285,7 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
     const cancelIndexation = useCallback(async () => {
         try {
             // Using the correct API endpoint to cancel the indexation task
-            await api.indexation.cancelIndexTask()
+            const response = await api.indexation.cancelIndexTask()
 
             // Clear the check interval
             if (checkIntervalRef.current) {
@@ -293,8 +293,10 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
                 checkIntervalRef.current = null
             }
 
-            setIsIndexing(false)
-            await refreshFolders()
+            if (response.status == 'success') {
+                setIsIndexing(false)
+                await refreshFolders()
+            }
         } catch (err) {
             console.error('Failed to cancel indexation:', err)
             throw err

@@ -107,7 +107,6 @@ const PhotoSwipeGallery: FC<PhotoSwipeGalleryProps> = ({
                 bgOpacity: 1,
                 preload: [2, 4],
                 loop: false,
-                close: false,
                 pinchToClose: false,
                 closeOnVerticalDrag: false,
             }}

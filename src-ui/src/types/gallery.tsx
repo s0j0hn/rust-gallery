@@ -71,6 +71,8 @@ export interface MenuSectionProps {
     onIndexation?: () => void
     onApiDocsClick?: () => void
     isIndexing?: boolean
+    isOpen?: boolean
+    onClose?: () => void
 }
 
 export interface RandomPhotoProps {

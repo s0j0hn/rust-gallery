@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react' // Added useState import
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import MenuSection from '../components/MenuSection'
 import FolderCard from '../components/FolderCard'
@@ -12,6 +12,9 @@ import useMobile from '../hooks/useMobile'
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
 
 const FolderList: React.FC = () => {
+    // Add state for menu open/close
+    const [isMenuOpen, setIsMenuOpen] = useState(false)
+
     const {
         filteredFolders,
         loading,
@@ -124,14 +127,6 @@ const FolderList: React.FC = () => {
         navigate('/api-docs')
     }
 
-    // if (loading) {
-    //     return (
-    //         <div className="flex justify-center items-center h-64">
-    //             Loading folders...
-    //         </div>
-    //     )
-    // }
-
     return (
         <div className="min-h-screen bg-gray-100 mobile-safe-bottom">
             <div className="container mx-auto p-4">
@@ -140,6 +135,8 @@ const FolderList: React.FC = () => {
                 <MenuSection
                     onTagClick={handleTagClick}
                     onApiDocsClick={handleApiDocsClick}
+                    isOpen={isMenuOpen} // Pass the open state to MenuSection
+                    onClose={() => setIsMenuOpen(false)} // Add close handler
                 />
 
                 {filteredFolders.length === 0 && (
@@ -198,7 +195,7 @@ const FolderList: React.FC = () => {
                 {hasMore && (
                     <div
                         ref={loadMoreRef}
-                        className="flex justify-center items-center py-8"
+                        className="flex justify-center items-center py-8 mb-16" // Added mb-16 for better mobile spacing
                     >
                         {loading && (
                             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -207,30 +204,22 @@ const FolderList: React.FC = () => {
                 )}
             </div>
 
-            {/* Mobile Navigation */}
+            {/* Mobile Navigation with fixed positioning and z-index */}
             {isMobile && (
-                <MobileNavigation
-                    onHomeClick={() => {
-                        navigate('/')
-                        setSelectedRoot('')
-                        setSearchQuery('')
-                    }}
-                    onRootClick={() => {
-                        const menuSection = document.querySelector(
-                            '.menu-section'
-                        ) as HTMLElement
-                        if (menuSection) menuSection.dataset.open = 'true'
-                    }}
-                    onTagsClick={() => {
-                        const menuSection = document.querySelector(
-                            '.menu-section'
-                        ) as HTMLElement
-                        if (menuSection) menuSection.dataset.open = 'true'
-                    }}
-                    onIndexClick={startIndexation}
-                    onApiDocsClick={handleApiDocsClick}
-                    isIndexing={isIndexing}
-                />
+                <div className="z-50 fixed bottom-0 left-0 right-0 bg-white shadow-t-lg">
+                    <MobileNavigation
+                        onHomeClick={() => {
+                            navigate('/')
+                            setSelectedRoot('')
+                            setSearchQuery('')
+                        }}
+                        onRootClick={() => setIsMenuOpen(true)} // Use React state instead of DOM manipulation
+                        onTagsClick={() => setIsMenuOpen(true)} // Use React state instead of DOM manipulation
+                        onIndexClick={startIndexation}
+                        onApiDocsClick={handleApiDocsClick}
+                        isIndexing={isIndexing}
+                    />
+                </div>
             )}
 
             {/* Dialogs */}

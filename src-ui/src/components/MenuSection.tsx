@@ -1,7 +1,7 @@
 // src/components/MenuSection.tsx
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
-    Database, // Add this new icon
+    Database,
     FileText,
     FolderOpen,
     Info,
@@ -13,14 +13,20 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { useFolders } from '../hooks/useFolders'
 import { MenuSectionProps } from '../types/gallery'
-import CacheManager from './CacheManager' // Import the CacheManager component
+import CacheManager from './CacheManager'
+import useMobile from '../hooks/useMobile' // Add this import
 
 const MenuSection: React.FC<MenuSectionProps> = ({
     onTagClick,
     onApiDocsClick,
+    isOpen = false,
+    onClose, // Add this prop
 }) => {
-    const [menuOpen, setMenuOpen] = useState<boolean>(false)
-    const [showCacheManager, setShowCacheManager] = useState<boolean>(false) // New state for showing cache manager
+    // Use internal state but synchronize with prop
+    const [menuOpen, setMenuOpen] = useState<boolean>(isOpen)
+    const [showCacheManager, setShowCacheManager] = useState<boolean>(false)
+    const isMobile = useMobile() // Add this to detect mobile view
+
     const {
         folders,
         roots,
@@ -34,6 +40,20 @@ const MenuSection: React.FC<MenuSectionProps> = ({
         cancelIndexation,
     } = useFolders()
     const navigate = useNavigate()
+
+    // Sync internal state with prop
+    useEffect(() => {
+        setMenuOpen(isOpen)
+    }, [isOpen])
+
+    // When internal state changes, notify parent
+    const handleMenuToggle = () => {
+        const newState = !menuOpen
+        setMenuOpen(newState)
+        if (!newState && onClose) {
+            onClose()
+        }
+    }
 
     // Calculate total photos
     const totalPhotos = roots.reduce(
@@ -72,7 +92,6 @@ const MenuSection: React.FC<MenuSectionProps> = ({
         }
     }
 
-    // New function to toggle the cache manager
     const toggleCacheManager = () => {
         setShowCacheManager(!showCacheManager)
     }
@@ -82,10 +101,15 @@ const MenuSection: React.FC<MenuSectionProps> = ({
             className="mb-6 menu-section"
             data-open={menuOpen ? 'true' : 'false'}
         >
-            <div className="flex justify-between items-center mb-4">
-                <div className="flex space-x-2">
+            {/* Updated layout for mobile responsiveness */}
+            <div
+                className={`${isMobile ? 'flex flex-col space-y-3' : 'flex justify-between items-center'} mb-4`}
+            >
+                <div
+                    className={`${isMobile ? 'flex flex-wrap gap-2' : 'flex space-x-2'}`}
+                >
                     <button
-                        onClick={() => setMenuOpen(!menuOpen)}
+                        onClick={handleMenuToggle}
                         className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition flex items-center"
                     >
                         <Info size={16} className="mr-2" />
@@ -117,6 +141,7 @@ const MenuSection: React.FC<MenuSectionProps> = ({
                     <button
                         onClick={cancelIndexation}
                         disabled={!isIndexing}
+                        hidden={!isIndexing}
                         className={`px-4 py-2 rounded-md transition-colors ${
                             !isIndexing
                                 ? 'bg-gray-300 cursor-not-allowed'
@@ -144,14 +169,17 @@ const MenuSection: React.FC<MenuSectionProps> = ({
                     </button>
                 </div>
 
-                <div className="relative w-full max-w-md ml-4">
+                {/* Make search bar responsive */}
+                <div
+                    className={`relative ${isMobile ? 'w-full' : 'w-full max-w-md ml-4'}`}
+                >
                     <Search
                         size={16}
                         className="absolute left-3 top-3 text-gray-400"
                     />
                     <input
                         type="text"
-                        value={searchQuery ? searchQuery : undefined}
+                        value={searchQuery || ''}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search folders..."
                         className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded"
@@ -169,7 +197,9 @@ const MenuSection: React.FC<MenuSectionProps> = ({
 
             {menuOpen && (
                 <div className="bg-white p-4 rounded-lg shadow-md mb-6 transition-all">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div
+                        className={`grid grid-cols-1 ${isMobile ? '' : 'md:grid-cols-3'} gap-4`}
+                    >
                         <div>
                             <h3 className="text-lg font-semibold mb-2 flex items-center">
                                 <FolderOpen size={18} className="mr-2" />

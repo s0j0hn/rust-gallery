@@ -7,14 +7,19 @@
   },
   "servers": [
     {
-      "url": "http://localhost:8000",
+      "url": "http://192.168.1.27:8000",
       "description": "Main server"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Local react server"
     }
   ],
   "paths": {
     "/folders/roots": {
       "get": {
         "summary": "Get all root folders",
+        "description": "Returns a list of all root level folders in the gallery",
         "operationId": "getRoots",
         "responses": {
           "200": {
@@ -36,6 +41,7 @@
     "/folders/json": {
       "get": {
         "summary": "Get all folders",
+        "description": "Returns a paginated list of all folders, with optional filtering by root folder and search term",
         "operationId": "getAllFolders",
         "parameters": [
           {
@@ -93,6 +99,7 @@
     "/folders/json/name/{folderName}": {
       "get": {
         "summary": "Get folder by name",
+        "description": "Returns details of a specific folder by its name",
         "operationId": "getFolderByName",
         "parameters": [
           {
@@ -125,6 +132,7 @@
     "/folders/delete": {
       "post": {
         "summary": "Delete a folder",
+        "description": "Deletes a folder and returns the number of affected rows",
         "operationId": "deleteFolder",
         "requestBody": {
           "required": true,
@@ -166,6 +174,7 @@
     "/tags/assign/folder": {
       "post": {
         "summary": "Update folder tags",
+        "description": "Updates the tags associated with a folder",
         "operationId": "updateFolderTags",
         "requestBody": {
           "required": true,
@@ -216,6 +225,7 @@
     "/files/json": {
       "get": {
         "summary": "Get photos by folder",
+        "description": "Returns a paginated list of photos within a specified folder",
         "operationId": "getPhotosByFolder",
         "parameters": [
           {
@@ -260,41 +270,10 @@
         }
       }
     },
-    "/photos": {
-      "get": {
-        "summary": "Get photos by tag",
-        "operationId": "getPhotosByTag",
-        "parameters": [
-          {
-            "name": "tag",
-            "in": "query",
-            "description": "Tag to filter by",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of photos with the specified tag",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Photo"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/files/random/json": {
       "get": {
         "summary": "Get random photos from a folder",
+        "description": "Returns a random selection of photos from a specified folder",
         "operationId": "getRandomPhotos",
         "parameters": [
           {
@@ -333,6 +312,7 @@
     "/tags/assign": {
       "post": {
         "summary": "Update photo tags",
+        "description": "Updates the tags associated with a specific photo",
         "operationId": "updatePhotoTags",
         "requestBody": {
           "required": true,
@@ -383,6 +363,7 @@
     "/tags": {
       "get": {
         "summary": "Get all tags",
+        "description": "Returns a list of all tags, optionally filtered by folder",
         "operationId": "getAllTags",
         "parameters": [
           {
@@ -414,6 +395,7 @@
     "/files/task/index": {
       "get": {
         "summary": "Trigger all photos indexation",
+        "description": "Initiates the indexing process for all photos, with an option to force reindexing",
         "operationId": "indexPhotos",
         "parameters": [
           {
@@ -448,23 +430,27 @@
     "/files/task/cancel": {
       "get": {
         "summary": "Cancel the indexation task",
+        "description": "Cancels any ongoing photo indexation task",
         "operationId": "cancelIndexTask",
         "responses": {
           "200": {
-            "description": "Indexation tsk cancel result",
+            "description": "Indexation task cancel result",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "task_running": {
-                      "type": "boolean"
+                      "type": "boolean",
+                      "description": "Indicates if a task was running"
                     },
                     "message": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "Status message"
                     },
                     "status": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "Current status of the task"
                     }
                   }
                 }
@@ -479,35 +465,45 @@
     "schemas": {
       "Root": {
         "type": "object",
+        "description": "Represents a root level folder in the gallery",
         "properties": {
           "id": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unique identifier for the root folder"
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "Name of the root folder"
           },
           "path": {
-            "type": "string"
+            "type": "string",
+            "description": "File system path to the root folder"
           }
         }
       },
       "Folder": {
         "type": "object",
+        "description": "Represents a folder in the gallery",
         "properties": {
           "id": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unique identifier for the folder"
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "Name of the folder"
           },
           "path": {
-            "type": "string"
+            "type": "string",
+            "description": "File system path to the folder"
           },
           "thumbnail": {
-            "type": "string"
+            "type": "string",
+            "description": "URL or path to the folder's thumbnail image"
           },
           "tags": {
             "type": "array",
+            "description": "List of tags associated with the folder",
             "items": {
               "type": "string"
             }
@@ -516,27 +512,35 @@
       },
       "Photo": {
         "type": "object",
+        "description": "Represents a photo in the gallery",
         "properties": {
           "id": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unique identifier for the photo"
           },
           "filename": {
-            "type": "string"
+            "type": "string",
+            "description": "Name of the photo file"
           },
           "path": {
-            "type": "string"
+            "type": "string",
+            "description": "File system path to the photo"
           },
           "hash": {
-            "type": "string"
+            "type": "string",
+            "description": "Unique hash of the photo file"
           },
           "width": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Width of the photo in pixels"
           },
           "height": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Height of the photo in pixels"
           },
           "tags": {
             "type": "array",
+            "description": "List of tags associated with the photo",
             "items": {
               "type": "string"
             }
@@ -545,27 +549,35 @@
       },
       "JsonFilePhoto": {
         "type": "object",
+        "description": "Represents a photo with additional JSON metadata",
         "properties": {
           "id": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unique identifier for the photo"
           },
           "filename": {
-            "type": "string"
+            "type": "string",
+            "description": "Name of the photo file"
           },
           "path": {
-            "type": "string"
+            "type": "string",
+            "description": "File system path to the photo"
           },
           "hash": {
-            "type": "string"
+            "type": "string",
+            "description": "Unique hash of the photo file"
           },
           "width": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Width of the photo in pixels"
           },
           "height": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Height of the photo in pixels"
           },
           "tags": {
             "type": "array",
+            "description": "List of tags associated with the photo",
             "items": {
               "type": "string"
             }
@@ -574,32 +586,40 @@
       },
       "JsonResponse": {
         "type": "object",
+        "description": "Standard response format for paginated results",
         "properties": {
           "data": {
             "type": "array",
+            "description": "Array of photo data",
             "items": {
               "$ref": "#/components/schemas/JsonFilePhoto"
             }
           },
           "total": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Total number of items available"
           },
           "per_page": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Number of items per page"
           },
           "current_page": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Current page number"
           },
           "total_pages": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Total number of pages available"
           }
         }
       },
       "JsonResponseTags": {
         "type": "object",
+        "description": "Response format for tag-related operations",
         "properties": {
           "tags": {
             "type": "array",
+            "description": "List of tags",
             "items": {
               "type": "string"
             }
