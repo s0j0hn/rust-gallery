@@ -39,19 +39,17 @@ use models::file::repository::{FileSchema, FolderInfo};
 // Application state and dependencies
 use cache_files::{ImageCache, StateFiles};
 use moka::sync::Cache;
-use rocket::{
-    fairing::AdHoc,
-    fs::{relative, FileServer, Options},
-    request::FlashMessage,
-    serde::{Deserialize, Serialize},
-    Build, Rocket,
-};
+use rocket::{fairing::AdHoc, fs::{relative, FileServer, Options}, request::FlashMessage, serde::{Deserialize, Serialize}, Build, Rocket};
 use rocket_dyn_templates::Template;
 use std::{
     collections::HashMap,
     sync::Arc,
     time::Duration,
 };
+use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions, Error};
+use crate::handlers::files::files_download::get_thumbnail_photo;
+use crate::handlers::files::tags::get_all_tags;
+use crate::handlers::folders::handler::{get_folder_by_name, get_folders_json, get_roots_json};
 
 /// Database connection pool for SQLite
 #[database("sqlite_database")]
@@ -131,12 +129,37 @@ struct AppConfig {
     images_dirs: Vec<String>,
 }
 
+// Setup CORS
+fn make_cors() -> Result<rocket_cors::Cors, Error> {
+    let allowed_origins = AllowedOrigins::all();
+
+    CorsOptions {
+        allowed_origins,
+        allowed_methods: vec!["Get", "Post", "Put", "Delete", "Options", "Head"]
+            .into_iter()
+            .map(|s| s.parse().unwrap())
+            .collect(),
+        allowed_headers: AllowedHeaders::some(&[
+            "Authorization",
+            "Accept",
+            "Content-Type",
+        ]),
+        allow_credentials: true,
+        ..Default::default()
+    }
+        .to_cors()
+}
+
+
 /// Main application entrypoint
 #[launch]
 fn rocket() -> _ {
     // Configure static file serving with options
     let options = Options::Index | Options::DotFiles;
 
+    // CORS
+    let cors = make_cors().expect("CORS configuration failed");
+    
     // Set up image cache with 4-day TTL
     let cache: ImageCache = Arc::new(
         Cache::builder()
@@ -156,6 +179,7 @@ fn rocket() -> _ {
         .manage(thread_manager)
 
         // Configuration
+        .attach(cors)
         .attach(AdHoc::config::<AppConfig>())
         .attach(DbConn::fairing())
         .attach(Template::fairing())
@@ -167,7 +191,7 @@ fn rocket() -> _ {
         // API routes, organized by functionality
         .mount("/configs", routes![update_config])
         .mount("/beta", routes![beta_index])
-        .mount("/tags", routes![assign_tag, assign_tag_folder])
+        .mount("/tags", routes![assign_tag, assign_tag_folder, get_all_tags])
         .mount(
             "/files",
             routes![
@@ -180,8 +204,9 @@ fn rocket() -> _ {
                 random_json,
                 get_all_json,
                 get_files_by_tag,
-                get_files_by_extension
+                get_files_by_extension,
+                get_thumbnail_photo
             ],
         )
-        .mount("/folders", routes![retrieve_folders, get_thumbnail_folder, delete_folder])
+        .mount("/folders", routes![get_folders_json, get_roots_json, get_folder_by_name, retrieve_folders, get_thumbnail_folder, delete_folder])
 }

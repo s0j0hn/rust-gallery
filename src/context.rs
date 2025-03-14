@@ -69,7 +69,7 @@ impl Context {
         root: &str,
     ) -> Context {
         // Get folders and handle possible error
-        let folders_info = match FileSchema::get_folders(conn, search_by.to_string(), root.to_string()).await {
+        let folders_info = match FileSchema::get_folders(conn, search_by.to_string(), root.to_string(), 1000, 0).await {
             Ok(mut folders) => {
                 folders.sort_by_key(|folder| folder.folder_name.to_lowercase());
                 folders
@@ -90,7 +90,7 @@ impl Context {
         };
 
         // Get and sort tags
-        let tags = match FileSchema::get_all_tags(&conn).await {
+        let tags = match FileSchema::get_all_tags(&conn, search_by.to_string()).await {
             Ok(mut tags) => {
                 tags.sort_by_key(|tag| tag.to_lowercase());
                 tags

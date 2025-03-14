@@ -3,12 +3,23 @@ use crate::DbConn;
 use rocket::serde::json::{Json};
 use rocket::serde::Serialize;
 
+// Default values for optional parameters
+const DEFAULT_FILTER: &str = "*";
+const EQUAL_FLAG: bool = false;
+const FOLDERS_SIZE: i64 = 0;
+
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]
 pub struct JsonFileResponse {
     items: Vec<FileSchema>,
     page: usize,
     total: usize,
+}
+
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+pub struct JsonFileTagsResponse {
+    tags: Vec<String>,
 }
 
 impl JsonFileResponse {
@@ -45,20 +56,16 @@ fn normalize_size(size: Option<usize>, min: usize, max: usize) -> usize {
     size.unwrap_or(min).clamp(min, max)
 }
 
+
 #[get("/random/json?<size>&<folder>", format = "json")]
 pub async fn random_json(
     conn: DbConn,
     size: Option<usize>,
     folder: Option<&str>,
 ) -> Json<JsonFileResponse> {
-    // Normalize size with constraints (default: 10, min: 1, max: 2000)
+    // Normalize size with constraints (default: 10, min: 10, max: 2000)
     let random_size = normalize_size(size, 10, 2000);
     let folder_filter = folder.unwrap_or("*");
-
-    // Default values for optional parameters
-    const DEFAULT_FILTER: &str = "*";
-    const EQUAL_FLAG: bool = false;
-    const FOLDERS_SIZE: i64 = 0;
 
     match FileSchema::random(
         &conn,
@@ -83,7 +90,7 @@ pub async fn get_all_json(
     folder: Option<&str>,
 ) -> Json<JsonFileResponse> {
     let current_page = page.unwrap_or(1);
-    let items_per_page = per_page.unwrap_or(100);
+    let items_per_page = per_page.unwrap_or(25);
     let folder_filter = folder.unwrap_or("*");
 
     // Calculate offset (avoid underflow by checking page > 0)

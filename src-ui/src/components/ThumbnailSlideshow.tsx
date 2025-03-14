@@ -1,96 +1,162 @@
-import React, { FC, useState, useEffect } from 'react';
+// src/components/ThumbnailSlideshow.tsx
+import React, { FC, useEffect, useState, useCallback } from 'react'
+import {
+    getCachedImageUrl,
+    cacheImageUrl,
+    preloadImage,
+    generateThumbnailUrl,
+} from '../utils/imageCacheUtils'
 
 interface ThumbnailSlideshowProps {
-    thumbnails: string[];
+    thumbnails: number[]
+    folderName: string
 }
 
-const ThumbnailSlideshow: FC<ThumbnailSlideshowProps> = ({ thumbnails }) => {
-    const [currentIndex, setCurrentIndex] = useState<number>(0);
-    const [loadedImages, setLoadedImages] = useState<Record<number, boolean>>({});
-    const [isTouching, setIsTouching] = useState<boolean>(false);
-    const [touchStartX, setTouchStartX] = useState<number | null>(null);
+const ThumbnailSlideshow: FC<ThumbnailSlideshowProps> = ({
+    thumbnails,
+    folderName,
+}) => {
+    const [currentIndex, setCurrentIndex] = useState<number>(0)
+    const [loadedImages, setLoadedImages] = useState<Record<number, boolean>>(
+        {}
+    )
+    const [isTouching, setIsTouching] = useState<boolean>(false)
+    const [touchStartX, setTouchStartX] = useState<number | null>(null)
+
+    // Get image URL with caching
+    const getImageUrl = useCallback(
+        (thumbnail: number, isThumbnail: boolean = false) => {
+            const width = isThumbnail ? 150 : 300
+            const height = isThumbnail ? 200 : 400
+
+            // Try to get from cache first
+            const cachedUrl = getCachedImageUrl(
+                thumbnail,
+                folderName,
+                width,
+                height
+            )
+            if (cachedUrl) {
+                return cachedUrl
+            }
+
+            // If not in cache, generate and cache the URL
+            const url = generateThumbnailUrl(
+                thumbnail,
+                folderName,
+                width,
+                height
+            )
+            cacheImageUrl(thumbnail, folderName, width, height)
+            return url
+        },
+        [folderName]
+    )
 
     // Reset loaded state when thumbnails change
     useEffect(() => {
-        setLoadedImages({});
-    }, [thumbnails]);
+        setLoadedImages({})
+    }, [thumbnails])
 
+    // Set up interval for changing thumbnails when not being touched
     useEffect(() => {
-        // Only set up interval for changing thumbnails if not being touched
-        if (isTouching) return;
+        if (isTouching || thumbnails.length === 0) return
 
         const interval = setInterval(() => {
-            setCurrentIndex((prevIndex) => (prevIndex + 1) % thumbnails.length);
-        }, 5000);
+            setCurrentIndex((prevIndex) => (prevIndex + 1) % thumbnails.length)
+        }, 5000)
 
-        // Clear interval on component unmount
-        return () => clearInterval(interval);
-    }, [thumbnails.length, isTouching]);
+        return () => clearInterval(interval)
+    }, [thumbnails.length, isTouching])
+
+    // Preload the next few images when current index changes
+    useEffect(() => {
+        if (thumbnails.length === 0) return
+
+        // Preload the next 2 images
+        const preloadNextImages = async () => {
+            try {
+                for (let i = 1; i <= 2; i++) {
+                    const nextIndex = (currentIndex + i) % thumbnails.length
+                    await preloadImage(thumbnails[nextIndex], folderName)
+                }
+            } catch (error) {
+                console.error('Error preloading images:', error)
+            }
+        }
+
+        preloadNextImages()
+    }, [currentIndex, thumbnails, folderName])
 
     // Handle image load events
     const handleImageLoad = (index: number) => {
-        setLoadedImages(prev => ({ ...prev, [index]: true }));
-    };
+        setLoadedImages((prev) => ({ ...prev, [index]: true }))
+    }
 
     // Check if image is loaded
-    const isImageLoaded = (index: number) => !!loadedImages[index];
+    const isImageLoaded = (index: number) => !!loadedImages[index]
 
     // Swipe handling
     const handleTouchStart = (e: React.TouchEvent) => {
-        setIsTouching(true);
-        setTouchStartX(e.touches[0].clientX);
-    };
+        setIsTouching(true)
+        setTouchStartX(e.touches[0].clientX)
+    }
 
     const handleTouchMove = (e: React.TouchEvent) => {
-        if (touchStartX === null) return;
-    };
+        if (touchStartX === null) return
+    }
 
     const handleTouchEnd = (e: React.TouchEvent) => {
         if (touchStartX === null) {
-            setIsTouching(false);
-            return;
+            setIsTouching(false)
+            return
         }
 
-        const touchEndX = e.changedTouches[0].clientX;
-        const diffX = touchStartX - touchEndX;
+        const touchEndX = e.changedTouches[0].clientX
+        const diffX = touchStartX - touchEndX
 
         // If swipe was significant enough
         if (Math.abs(diffX) > 50) {
             if (diffX > 0) {
                 // Swiped left - go to next
-                setCurrentIndex(prev => (prev + 1) % thumbnails.length);
+                setCurrentIndex((prev) => (prev + 1) % thumbnails.length)
             } else {
                 // Swiped right - go to previous
-                setCurrentIndex(prev => (prev - 1 + thumbnails.length) % thumbnails.length);
+                setCurrentIndex(
+                    (prev) => (prev - 1 + thumbnails.length) % thumbnails.length
+                )
             }
         }
 
-        setTouchStartX(null);
-        setIsTouching(false);
-    };
+        setTouchStartX(null)
+        setIsTouching(false)
+    }
 
     return (
         <div
-            className="relative h-48 bg-gray-200 overflow-hidden"
+            className="relative h-64 bg-gray-200 overflow-hidden"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
         >
-            {thumbnails.map((thumbnail, index) => (
-                <img
-                    key={index}
-                    src={thumbnail}
-                    alt={`Thumbnail ${index + 1}`}
-                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
-                        index === currentIndex
-                            ? 'opacity-100'
-                            : 'opacity-0'
-                    } ${
-                        isImageLoaded(index) ? 'block' : 'hidden'
-                    }`}
-                    onLoad={() => handleImageLoad(index)}
-                />
-            ))}
+            {thumbnails.map((thumbnail, index) => {
+                // Get the URLs (from cache if available)
+                const regularUrl = getImageUrl(thumbnail)
+                const thumbnailUrl = getImageUrl(thumbnail, true)
+
+                return (
+                    <img
+                        key={index}
+                        srcSet={`${thumbnailUrl} 1x, ${regularUrl} 2x`}
+                        src={regularUrl}
+                        alt={`Thumbnail ${index + 1}`}
+                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+                            index === currentIndex ? 'opacity-100' : 'opacity-0'
+                        } ${isImageLoaded(index) ? 'block' : 'hidden'}`}
+                        onLoad={() => handleImageLoad(index)}
+                    />
+                )
+            })}
 
             {!isImageLoaded(currentIndex) && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
@@ -121,7 +187,7 @@ const ThumbnailSlideshow: FC<ThumbnailSlideshowProps> = ({ thumbnails }) => {
                 </div>
             </div>
         </div>
-    );
-};
+    )
+}
 
-export default ThumbnailSlideshow;
+export default ThumbnailSlideshow

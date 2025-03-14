@@ -1,28 +1,40 @@
-import React, { FC, useState } from 'react';
-import { Home, FolderOpen, Tag, RefreshCw, X, Menu, FileText } from 'lucide-react';
+// src/components/MobileNavigation.tsx
+import React, { FC, useState } from 'react'
+import {
+    Database, // Add this new icon
+    FileText,
+    FolderOpen,
+    Home,
+    Menu,
+    RefreshCw,
+    Tag,
+    X,
+} from 'lucide-react'
+import CacheManager from './CacheManager' // Import the CacheManager component
 
 interface MobileNavigationProps {
-    onHomeClick: () => void;
-    onFoldersClick: () => void;
-    onTagsClick: () => void;
-    onIndexClick: () => void;
-    onApiDocsClick?: () => void;
-    isIndexing: boolean;
+    onHomeClick: () => void
+    onRootClick: () => void
+    onTagsClick: () => void
+    onIndexClick: () => void
+    onApiDocsClick?: () => void
+    isIndexing: boolean
 }
 
 const MobileNavigation: FC<MobileNavigationProps> = ({
-                                                         onHomeClick,
-                                                         onFoldersClick,
-                                                         onTagsClick,
-                                                         onIndexClick,
-                                                         onApiDocsClick,
-                                                         isIndexing
-                                                     }) => {
-    const [menuOpen, setMenuOpen] = useState(false);
+    onHomeClick,
+    onRootClick,
+    onTagsClick,
+    onIndexClick,
+    onApiDocsClick,
+    isIndexing,
+}) => {
+    const [menuOpen, setMenuOpen] = useState(false)
+    const [showCacheManager, setShowCacheManager] = useState(false) // New state
 
     const toggleMenu = () => {
-        setMenuOpen(!menuOpen);
-    };
+        setMenuOpen(!menuOpen)
+    }
 
     return (
         <>
@@ -40,8 +52,8 @@ const MobileNavigation: FC<MobileNavigationProps> = ({
                     <div className="flex flex-col w-56">
                         <button
                             onClick={() => {
-                                onHomeClick();
-                                toggleMenu();
+                                onHomeClick()
+                                toggleMenu()
                             }}
                             className="flex items-center px-4 py-3 hover:bg-gray-100 transition"
                         >
@@ -51,19 +63,19 @@ const MobileNavigation: FC<MobileNavigationProps> = ({
 
                         <button
                             onClick={() => {
-                                onFoldersClick();
-                                toggleMenu();
+                                onRootClick()
+                                toggleMenu()
                             }}
                             className="flex items-center px-4 py-3 hover:bg-gray-100 transition"
                         >
                             <FolderOpen size={18} className="mr-3" />
-                            <span>Folders</span>
+                            <span>Roots</span>
                         </button>
 
                         <button
                             onClick={() => {
-                                onTagsClick();
-                                toggleMenu();
+                                onTagsClick()
+                                toggleMenu()
                             }}
                             className="flex items-center px-4 py-3 hover:bg-gray-100 transition"
                         >
@@ -73,21 +85,38 @@ const MobileNavigation: FC<MobileNavigationProps> = ({
 
                         <button
                             onClick={() => {
-                                onIndexClick();
-                                toggleMenu();
+                                onIndexClick()
+                                toggleMenu()
                             }}
                             disabled={isIndexing}
                             className={`flex items-center px-4 py-3 hover:bg-gray-100 transition ${isIndexing ? 'opacity-50' : ''}`}
                         >
-                            <RefreshCw size={18} className={`mr-3 ${isIndexing ? 'animate-spin' : ''}`} />
-                            <span>{isIndexing ? 'Indexing...' : 'Index Photos'}</span>
+                            <RefreshCw
+                                size={18}
+                                className={`mr-3 ${isIndexing ? 'animate-spin' : ''}`}
+                            />
+                            <span>
+                                {isIndexing ? 'Indexing...' : 'Index Photos'}
+                            </span>
+                        </button>
+
+                        {/* New Cache Manager Button */}
+                        <button
+                            onClick={() => {
+                                setShowCacheManager(true)
+                                toggleMenu()
+                            }}
+                            className="flex items-center px-4 py-3 hover:bg-gray-100 transition"
+                        >
+                            <Database size={18} className="mr-3" />
+                            <span>Manage Cache</span>
                         </button>
 
                         {onApiDocsClick && (
                             <button
                                 onClick={() => {
-                                    onApiDocsClick();
-                                    toggleMenu();
+                                    onApiDocsClick()
+                                    toggleMenu()
                                 }}
                                 className="flex items-center px-4 py-3 hover:bg-gray-100 transition"
                             >
@@ -98,8 +127,13 @@ const MobileNavigation: FC<MobileNavigationProps> = ({
                     </div>
                 </div>
             )}
-        </>
-    );
-};
 
-export default MobileNavigation;
+            {/* Cache Manager Modal */}
+            {showCacheManager && (
+                <CacheManager onClose={() => setShowCacheManager(false)} />
+            )}
+        </>
+    )
+}
+
+export default MobileNavigation

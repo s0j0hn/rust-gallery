@@ -55,21 +55,25 @@ Photo Album Portal is a modern web application designed for browsing and organiz
 ## ✨ Features
 
 - **Album Organization**
+
     - Browse albums organized by folders
     - View album details with thumbnails and metadata
     - Filter and search across your photo collection
 
 - **Advanced Photo Viewing**
+
     - Full-screen photo viewing with PhotoSwipe integration
     - Touch-optimized gestures for zoom, pan, and navigation
     - Slideshow functionality with customizable controls
 
 - **Tag Management**
+
     - Add, remove, and organize tags for albums
     - Filter photos by tags across your collection
     - Quick navigation through tag-based organization
 
 - **Mobile Experience**
+
     - Responsive design adapts to all screen sizes
     - Touch-optimized controls and larger tap targets
     - Bottom navigation for one-handed mobile use
@@ -96,21 +100,24 @@ Photo Album Portal is a modern web application designed for browsing and organiz
 
 ## 🌐 Live Demo
 
-*A live demo will be available soon*
+_A live demo will be available soon_
 
 ## 💻 Technology Stack
 
 - **Frontend Framework**
+
     - React 18
     - TypeScript 4.9
     - Tailwind CSS 3.x
 
 - **Libraries**
+
     - PhotoSwipe 5.x (enhanced photo viewing)
     - react-photoswipe-gallery (React wrapper for PhotoSwipe)
     - Lucide Icons (modern icon library)
 
 - **Development Tools**
+
     - Create React App with TypeScript template
     - ESLint & Prettier for code quality
     - Jest & React Testing Library for testing
@@ -131,29 +138,33 @@ Photo Album Portal is a modern web application designed for browsing and organiz
 ### Development Setup
 
 1. Clone the repository
-   ```bash
-   git clone https://github.com/yourusername/photo-album-portal.git
-   cd photo-album-portal
-   ```
+
+    ```bash
+    git clone https://github.com/yourusername/photo-album-portal.git
+    cd photo-album-portal
+    ```
 
 2. Install dependencies
-   ```bash
-   npm install
-   ```
+
+    ```bash
+    npm install
+    ```
 
 3. Start the development server
-   ```bash
-   npm start
-   ```
+
+    ```bash
+    npm start
+    ```
 
 4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
 ### Production Build
 
 1. Create a production build
-   ```bash
-   npm run build
-   ```
+
+    ```bash
+    npm run build
+    ```
 
 2. The build files will be in the `build` directory
 
@@ -209,6 +220,7 @@ make compose-down
 ```
 
 The Makefile provides targets for:
+
 - Building single or multi-platform images
 - Running containers locally
 - Pushing to Docker Hub
@@ -274,6 +286,7 @@ The application is fully optimized for mobile devices:
 The application is designed to connect with a backend API:
 
 1. **API Endpoints**
+
     - `/api/albums`: Get all albums or a specific album
     - `/api/photos`: Get photos with optional filtering
     - `/api/tags`: Manage photo and album tags
@@ -283,6 +296,7 @@ The application is designed to connect with a backend API:
     - All data manipulation functions are prepared for backend integration
 
 To connect your own backend:
+
 1. Update the API utility functions in the application
 2. Ensure your backend provides the expected data structure
 3. Add authentication if needed

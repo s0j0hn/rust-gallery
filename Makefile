@@ -1,20 +1,20 @@
-PROJECT_NAME := rusty-images
-VERSION := 0.1.0
-DOCKER_REGISTRY := docker.io
-DOCKER_REPO := s0j0hn/$(PROJECT_NAME)
-DOCKER_TAG := $(VERSION)
-DOCKER_IMG := $(DOCKER_REPO):$(DOCKER_TAG)
-DOCKER_IMG_LATEST := $(DOCKER_REPO):latest
+PROJECT_NAME= rusty-images
+VERSION= 0.3.0
+DOCKER_REGISTRY= docker.io
+DOCKER_REPO= s0j0hn/$(PROJECT_NAME)
+DOCKER_TAG= $(VERSION)
+DOCKER_IMG= $(DOCKER_REPO):$(DOCKER_TAG)
+DOCKER_IMG_LATEST= $(DOCKER_REPO):latest
 
 # Rust configuration
-CARGO := cargo
-CARGO_FLAGS := --release
-RUST_LOG := info
+CARGO= cargo
+CARGO_FLAGS= --release
+RUST_LOG= info
 
 # Docker configuration
-DOCKER := docker
-DOCKER_BUILD_FLAGS := --no-cache
-DOCKER_RUN_FLAGS := -p 8000:8000 -v $(PWD)/images:/build/images
+DOCKER = docker
+DOCKER_BUILD_FLAGS=
+DOCKER_RUN_FLAGS= -p 8000:8000 -v $(PWD)/images:/build/images
 
 # Default target
 .PHONY: all
@@ -57,7 +57,7 @@ test: ## Run all tests
 .PHONY: docker-build
 docker-build: ## Build Docker image
 	@echo "Building Docker image: $(DOCKER_IMG)"
-	$(DOCKER) build $(DOCKER_BUILD_FLAGS) -t $(DOCKER_IMG_LATEST) .
+	$(DOCKER) build --cache-from $(DOCKER_IMG) -t $(DOCKER_IMG) .
 	$(DOCKER) tag $(DOCKER_IMG) $(DOCKER_IMG_LATEST)
 	@echo "Successfully built $(DOCKER_IMG) and tagged as latest"
 
@@ -67,9 +67,9 @@ docker-run: ## Run application in Docker container
 	$(DOCKER) run $(DOCKER_RUN_FLAGS) $(DOCKER_IMG_LATEST)
 
 .PHONY: docker-push
-docker-push: ## Push Docker image to registry
-	@echo "Pushing Docker image to registry: $(DOCKER_IMG_LATEST)"
-	$(DOCKER) push $(DOCKER_IMG_LATEST)
+docker-push: docker-build ## Push Docker image to registry
+	@echo "Pushing Docker image to registry: $(DOCKER_IMG) and $(DOCKER_IMG_LATEST)"
+	$(DOCKER) push $(DOCKER_IMG)
 	$(DOCKER) push $(DOCKER_IMG_LATEST)
 	@echo "Successfully pushed $(DOCKER_IMG) and latest tag"
 
@@ -87,9 +87,6 @@ db-setup: ## Initialize the database
 .PHONY: help
 help: ## Display this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
-
-docker-build:
-	docker build $(DOCKER_BUILD_ARGS) -t $(USERNAME)/$(IMAGE):latest $(DOCKER_BUILD_CONTEXT) -f $(DOCKER_FILE_PATH)
 
 .PHONY: format
 format: ## Format code using rustfmt

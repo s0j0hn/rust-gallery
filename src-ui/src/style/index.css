@@ -5,89 +5,89 @@
 
 /* Custom styles */
 .pb-full {
-  padding-bottom: 100%;
+    padding-bottom: 100%;
 }
 
 /* Animation */
 .animate-spin {
-  animation: spin 1s linear infinite;
+    animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* PhotoSwipe overrides */
 .pswp__img {
-  object-fit: contain !important;
+    object-fit: contain !important;
 }
 
 .pswp__button--share {
-  display: none !important;
+    display: none !important;
 }
 
 .pswp__caption__center {
-  text-align: center !important;
-  max-width: 500px;
-  font-size: 14px;
+    text-align: center !important;
+    max-width: 500px;
+    font-size: 14px;
 }
 
 .pswp__bg {
-  background: rgba(0, 0, 0, 0.9) !important;
+    background: rgba(0, 0, 0, 0.9) !important;
 }
 
 /* Custom PhotoSwipe UI enhancements */
 .pswp__top-bar {
-  background-color: rgba(0, 0, 0, 0.3) !important;
+    background-color: rgba(0, 0, 0, 0.3) !important;
 }
 
 .pswp__counter {
-  font-size: 14px;
-  color: #fff;
-  opacity: 0.85;
+    font-size: 14px;
+    color: #fff;
+    opacity: 0.85;
 }
 
 /* Mobile Optimization */
 @media (max-width: 768px) {
-  .action-button {
-    @apply py-3 px-4;
-    min-height: 44px; /* Ensure touch targets are large enough */
-  }
+    .action-button {
+        @apply py-3 px-4;
+        min-height: 44px; /* Ensure touch targets are large enough */
+    }
 
-  /* Improve tap targets for mobile */
-  button,
-  [role="button"],
-  .clickable {
-    @apply min-h-[44px] min-w-[44px] flex items-center justify-center;
-  }
+    /* Improve tap targets for mobile */
+    button,
+    [role='button'],
+    .clickable {
+        @apply min-h-[44px] min-w-[44px] flex items-center justify-center;
+    }
 
-  /* Fix bottom padding to ensure content isn't hidden behind mobile browser UI */
-  .mobile-safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 1rem);
-  }
+    /* Fix bottom padding to ensure content isn't hidden behind mobile browser UI */
+    .mobile-safe-bottom {
+        padding-bottom: env(safe-area-inset-bottom, 1rem);
+    }
 
-  /* Enhanced mobile scrolling */
-  .scroll-container {
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
-  }
+    /* Enhanced mobile scrolling */
+    .scroll-container {
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+    }
 
-  /* Prevent text zoom on mobile */
-  input,
-  textarea,
-  select,
-  button {
-    font-size: 16px; /* Prevent iOS zoom on focus */
-  }
+    /* Prevent text zoom on mobile */
+    input,
+    textarea,
+    select,
+    button {
+        font-size: 16px; /* Prevent iOS zoom on focus */
+    }
 
-  /* Mobile optimized PhotoSwipe */
-  .pswp__button {
-    width: 44px !important;
-    height: 44px !important;
-  }
+    /* Mobile optimized PhotoSwipe */
+    .pswp__button {
+        width: 44px !important;
+        height: 44px !important;
+    }
 }

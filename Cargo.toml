@@ -9,6 +9,7 @@ debug = "none"
 
 [dependencies]
 rocket = { version = "0.5.1", features = ["json", "serde_json"] }
+rocket_cors = "0.6.0"
 diesel = { version = "2.2.7", features = ["sqlite", "r2d2", "serde_json"] }
 diesel_migrations = {version = "2.2"}
 libsqlite3-sys = { version = "0.30", features = ["bundled"] }

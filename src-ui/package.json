@@ -1,54 +1,56 @@
 {
-  "name": "photo-album-portal",
-  "version": "0.1.0",
-  "private": true,
-  "dependencies": {
-    "@testing-library/dom": "^10.4.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.2.0",
-    "@testing-library/user-event": "^14.6.1",
-    "@types/jest": "^29.5.14",
-    "@types/node": "^18.19.79",
-    "@types/react": "^19.0.10",
-    "@types/react-dom": "^19.0.4",
-    "axios": "^1.8.1",
-    "lucide-react": "^0.477.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-scripts": "5.0.1",
-    "typescript": "^5.8.2",
-    "web-vitals": "^2.1.4",
-    "react-photoswipe-gallery": "^3.0.2",
-    "swagger-ui-react": "^5.20.0"
-  },
-  "devDependencies": {
-    "@types/swagger-ui-react": "^5.18.0",
-    "autoprefixer": "^10.4.13",
-    "postcss": "^8.4.21",
-    "tailwindcss": "^3.2.4"
-  },
-  "scripts": {
-    "start": "react-scripts start --inspect-brk test --runInBand --no-cache",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  }
+    "name": "photo-album-portal",
+    "version": "0.3.0",
+    "private": true,
+    "dependencies": {
+        "@testing-library/dom": "^10.4.0",
+        "@testing-library/jest-dom": "^6.6.3",
+        "@testing-library/react": "^16.2.0",
+        "@testing-library/user-event": "^14.6.1",
+        "@types/jest": "^29.5.14",
+        "@types/node": "^22.13.9",
+        "@types/react": "^19.0.10",
+        "@types/react-dom": "^19.0.4",
+        "axios": "^1.8.3",
+        "lucide-react": "^0.481.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "react-photoswipe-gallery": "^3.1.0",
+        "react-router-dom": "^7.3.0",
+        "react-scripts": "^5.0.1",
+        "swagger-ui-react": "^5.20.1",
+        "typescript": "^5.8.2",
+        "web-vitals": "^4.2.4"
+    },
+    "devDependencies": {
+        "@types/swagger-ui-react": "^5.18.0",
+        "autoprefixer": "^10.4.13",
+        "postcss": "^8.4.21",
+        "prettier": "3.5.3",
+        "tailwindcss": "^3.2.4"
+    },
+    "scripts": {
+        "start": "react-scripts start --inspect-brk test --runInBand --no-cache",
+        "build": "BUILD_PATH='../static' react-scripts build",
+        "test": "react-scripts test",
+        "eject": "react-scripts eject"
+    },
+    "eslintConfig": {
+        "extends": [
+            "react-app",
+            "react-app/jest"
+        ]
+    },
+    "browserslist": {
+        "production": [
+            ">0.2%",
+            "not dead",
+            "not op_mini all"
+        ],
+        "development": [
+            "last 1 chrome version",
+            "last 1 firefox version",
+            "last 1 safari version"
+        ]
+    }
 }
