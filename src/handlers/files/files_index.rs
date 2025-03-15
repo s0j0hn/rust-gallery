@@ -1,21 +1,21 @@
+use crate::handlers::tasks::task_manager::ThreadManager;
 use crate::models::file::repository::{FileSchema, Image};
 use crate::{AppConfig, Context, DbConn};
 use image::ImageReader;
+use rocket::State;
+use rocket::request::FlashMessage;
+use rocket::serde::Serialize;
+use rocket::serde::json::Json;
+use rocket_dyn_templates::Template;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::fs::File;
-use std::{fs, io};
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use walkdir::{DirEntry, WalkDir};
-use rocket::request::FlashMessage;
-use rocket_dyn_templates::Template;
-use rocket::State;
 use std::sync::atomic::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH};
-use rocket::serde::json::{Json};
-use rocket::serde::Serialize;
-use crate::handlers::tasks::task_manager::ThreadManager;
+use std::{fs, io};
+use walkdir::{DirEntry, WalkDir};
 
 fn extract_image_info(path: &PathBuf) -> ImageInfo {
     let reader = ImageReader::open(path);
@@ -50,7 +50,7 @@ fn extract_image_info(path: &PathBuf) -> ImageInfo {
     }
 }
 
-fn truncate_strings(strings: &mut Vec<String>) {
+fn truncate_strings(strings: &mut [String]) {
     for s in strings.iter_mut() {
         if s.len() > 16 {
             *s = s.chars().take(16).collect();
@@ -66,15 +66,20 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
-pub async fn walk_directory(dir_path: &str, conn: &DbConn, force_write: &bool, last_indexed: Option<u64>) {
+pub async fn walk_directory(
+    dir_path: &str,
+    conn: &DbConn,
+    force_write: &bool,
+    last_indexed: Option<u64>,
+) {
     println!("************************");
     println!("STARTED INDEXING {}...", dir_path);
     println!("************************");
     let mut printed_dirs: HashSet<String> = HashSet::new();
     let mut set_all_file_schemas: HashSet<String> = HashSet::new();
 
-    if *force_write == false {
-        set_all_file_schemas = FileSchema::all_hashes(&conn)
+    if !(*force_write) {
+        set_all_file_schemas = FileSchema::all_hashes(conn)
             .await
             .map(|mut hashes| {
                 truncate_strings(&mut hashes);
@@ -112,7 +117,9 @@ pub async fn walk_directory(dir_path: &str, conn: &DbConn, force_write: &bool, l
                 if !force_write && last_indexed.is_some() {
                     if let Ok(metadata) = fs::metadata(path) {
                         if let Ok(modified_time) = metadata.modified() {
-                            if let Ok(modified_since_epoch) = modified_time.duration_since(UNIX_EPOCH) {
+                            if let Ok(modified_since_epoch) =
+                                modified_time.duration_since(UNIX_EPOCH)
+                            {
                                 let modified_secs = modified_since_epoch.as_secs();
                                 if modified_secs <= last_indexed.unwrap() {
                                     // File hasn't been modified since last indexation
@@ -130,69 +137,62 @@ pub async fn walk_directory(dir_path: &str, conn: &DbConn, force_write: &bool, l
                     .to_string();
 
                 let vec_file_name_hash: Vec<&str> = file_name.split("_").collect();
-                let file_name_hash: &str;
-                match vec_file_name_hash.len() == 2 {
-                    true => {
-                        file_name_hash = vec_file_name_hash[1];
+
+                let file_name_hash: &str = match vec_file_name_hash.len() == 2 {
+                    true => vec_file_name_hash[1],
+                    false => "",
+                };
+
+                if !set_all_file_schemas.contains(file_name_hash) {
+                    let hash = calculate_sha256(entry.path());
+                    let hash_value = hash.unwrap();
+
+                    // Extract folder name
+                    let image_info = extract_image_info(&PathBuf::from(path));
+                    let folder_name = image_info.folder_name.clone();
+                    // remove the not wanted chars in the folder name
+                    let trim_folder_name = image_info
+                        .folder_name
+                        .to_lowercase()
+                        .replace(" ", "-")
+                        .replace(
+                            &['/', '#', '&', '(', ')', ',', '\"', '.', ';', ':', '\''][..],
+                            "",
+                        );
+
+                    if image_info.w == 0 || image_info.h == 0 {
+                        continue;
                     }
-                    false => {
-                        file_name_hash = "";
-                    }
-                }
 
-                match set_all_file_schemas.get(file_name_hash) {
-                    None => {
-                        let hash = calculate_sha256(&entry.path());
-                        let hash_value = hash.unwrap();
+                    let image = Image {
+                        root: dir_path.to_string(),
+                        path: path.to_str().unwrap().to_string(),
+                        hash: hash_value,
+                        extention: image_info.file_extension.to_lowercase(),
+                        filename: image_info.file_name,
+                        folder_name: trim_folder_name,
+                        width: image_info.w as i32,
+                        height: image_info.h as i32,
+                    };
 
-                        // Extract folder name
-                        let image_info = extract_image_info(&PathBuf::from(path));
-                        let folder_name = image_info.folder_name.clone();
-                        // remove the not wanted chars in the folder name
-                        let trim_folder_name = image_info
-                            .folder_name
-                            .to_lowercase()
-                            .replace(" ", "-")
-                            .replace(
-                                &['/', '#', '&', '(', ')', ',', '\"', '.', ';', ':', '\''][..],
-                                "",
-                            );
-
-                        if image_info.w == 0 || image_info.h == 0 {
-                            continue;
-                        }
-
-                        let image = Image {
-                            root: dir_path.to_string(),
-                            path: path.to_str().unwrap().to_string(),
-                            hash: hash_value,
-                            extention: image_info.file_extension.to_lowercase(),
-                            filename: image_info.file_name,
-                            folder_name: trim_folder_name,
-                            width: image_info.w as i32,
-                            height: image_info.h as i32,
-                        };
-
-                        match force_write {
-                            true => match FileSchema::update(image, conn).await {
-                                Ok(_) => {
-                                    if printed_dirs.insert(folder_name.clone()) {
-                                        println!("Folder: {} - ongoing update...", &folder_name);
-                                    }
+                    match force_write {
+                        true => match FileSchema::update(image, conn).await {
+                            Ok(_) => {
+                                if printed_dirs.insert(folder_name.clone()) {
+                                    println!("Folder: {} - ongoing update...", &folder_name);
                                 }
-                                Err(_) => continue,
-                            },
-                            false => match FileSchema::insert(image, conn).await {
-                                Ok(_) => {
-                                    if printed_dirs.insert(folder_name.clone()) {
-                                        println!("Folder: {} - ongoing inserts...", &folder_name);
-                                    }
+                            }
+                            Err(_) => continue,
+                        },
+                        false => match FileSchema::insert(image, conn).await {
+                            Ok(_) => {
+                                if printed_dirs.insert(folder_name.clone()) {
+                                    println!("Folder: {} - ongoing inserts...", &folder_name);
                                 }
-                                Err(_) => continue,
-                            },
-                        }
+                            }
+                            Err(_) => continue,
+                        },
                     }
-                    Some(_) => {}
                 }
             }
             Err(err) => {
@@ -241,19 +241,43 @@ struct ImageInfo {
 }
 
 #[get("/tags?<tag>")]
-pub async fn get_files_by_tag(flash: Option<FlashMessage<'_>>, conn: DbConn, tag: &str) -> Template {
+pub async fn get_files_by_tag(
+    flash: Option<FlashMessage<'_>>,
+    conn: DbConn,
+    tag: &str,
+) -> Template {
     let flash = flash.map(FlashMessage::into_inner);
 
-    Template::render("files", Context::random(&conn, flash, &500, None, None, Some(tag), None, &false, &0).await)
+    Template::render(
+        "files",
+        Context::random(&conn, flash, &500, None, None, Some(tag), None, &false, &0).await,
+    )
 }
 
 #[get("/type?<extension>")]
-pub async fn get_files_by_extension(flash: Option<FlashMessage<'_>>, conn: DbConn, extension: &str) -> Template {
+pub async fn get_files_by_extension(
+    flash: Option<FlashMessage<'_>>,
+    conn: DbConn,
+    extension: &str,
+) -> Template {
     let flash = flash.map(FlashMessage::into_inner);
 
-    Template::render("files", Context::random(&conn, flash, &500, None, None, None, Some(extension), &false, &0).await)
+    Template::render(
+        "files",
+        Context::random(
+            &conn,
+            flash,
+            &500,
+            None,
+            None,
+            None,
+            Some(extension),
+            &false,
+            &0,
+        )
+        .await,
+    )
 }
-
 
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]
@@ -292,10 +316,12 @@ pub async fn index_files(
             None
         } else {
             // Safely get the current value
-            match thread_manager.last_indexed.lock().await.as_ref() {
-                Some(timestamp) => Some(*timestamp),
-                None => None
-            }
+            thread_manager
+                .last_indexed
+                .lock()
+                .await
+                .as_ref()
+                .map(|timestamp| *timestamp)
         };
 
         // Clone the Mutex/Arc instead of taking a reference
@@ -323,10 +349,7 @@ pub async fn index_files(
     }
 
     // For the response, get the current last_indexed value
-    let last_indexed_value = match *thread_manager.last_indexed.lock().await {
-        Some(timestamp) => Some(timestamp),
-        None => None
-    };
+    let last_indexed_value = *thread_manager.last_indexed.lock().await;
 
     // Return JSON response with task status
     Json(JsonTaskIndexResponse {
@@ -337,6 +360,6 @@ pub async fn index_files(
         } else {
             "Started new indexation task".to_string()
         },
-        last_indexed: last_indexed_value
+        last_indexed: last_indexed_value,
     })
 }

@@ -1,6 +1,6 @@
+use crate::DbConn;
 use crate::models::config::repository::{ConfigInfo, ConfigSchema};
-use crate::{DbConn};
-use rocket::serde::json::{json, Json, Value};
+use rocket::serde::json::{Json, Value, json};
 use rocket::serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]

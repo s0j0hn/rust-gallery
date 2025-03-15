@@ -1,7 +1,7 @@
-use crate::models::file::repository::FileSchema;
 use crate::DbConn;
-use rocket::serde::json::{Json};
+use crate::models::file::repository::FileSchema;
 use rocket::serde::Serialize;
+use rocket::serde::json::Json;
 
 // Default values for optional parameters
 const DEFAULT_FILTER: &str = "*";
@@ -44,7 +44,7 @@ impl JsonFileResponse {
     // Helper method to handle database errors
     fn handle_error<T>(error: T, page: usize) -> Json<Self>
     where
-        T: std::fmt::Display
+        T: std::fmt::Display,
     {
         error!("Database error: {}", error);
         Self::empty(page)
@@ -55,7 +55,6 @@ impl JsonFileResponse {
 fn normalize_size(size: Option<usize>, min: usize, max: usize) -> usize {
     size.unwrap_or(min).clamp(min, max)
 }
-
 
 #[get("/random/json?<size>&<folder>", format = "json")]
 pub async fn random_json(
@@ -75,8 +74,10 @@ pub async fn random_json(
         DEFAULT_FILTER.to_string(),
         DEFAULT_FILTER.to_string(),
         EQUAL_FLAG,
-        FOLDERS_SIZE
-    ).await {
+        FOLDERS_SIZE,
+    )
+    .await
+    {
         Ok(files) => JsonFileResponse::with_files(files, 1, random_size),
         Err(e) => JsonFileResponse::handle_error(e, 1),
     }
@@ -105,7 +106,9 @@ pub async fn get_all_json(
         items_per_page as i64,
         offset as i64,
         folder_filter.to_string(),
-    ).await {
+    )
+    .await
+    {
         Ok(files) => JsonFileResponse::with_files(files.clone(), current_page, files.len()),
         Err(e) => JsonFileResponse::handle_error(e, current_page),
     }

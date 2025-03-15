@@ -1,7 +1,7 @@
 use crate::cache_files::StateFiles;
+use crate::models::file::repository::FileSchema;
 use crate::{Context, DbConn};
 use rocket::State;
-use crate::models::file::repository::FileSchema;
 
 impl Context {
     // Helper method to create an error context
@@ -44,7 +44,9 @@ impl Context {
         match FileSchema::all_by_folder(conn, folder_name.to_string()).await {
             Ok(files) => {
                 // Store in cache for future use
-                lock.entry(folder_name.to_string()).or_insert_with(Vec::new).extend(files.clone());
+                lock.entry(folder_name.to_string())
+                    .or_insert_with(Vec::new)
+                    .extend(files.clone());
 
                 Context {
                     flash,
@@ -69,32 +71,35 @@ impl Context {
         root: &str,
     ) -> Context {
         // Get folders and handle possible error
-        let folders_info = match FileSchema::get_folders(conn, search_by.to_string(), root.to_string(), 1000, 0).await {
-            Ok(mut folders) => {
-                folders.sort_by_key(|folder| folder.folder_name.to_lowercase());
-                folders
-            },
-            Err(e) => return Self::error_context(&format!("File::get_folders() error: {e}")),
-        };
+        let folders_info =
+            match FileSchema::get_folders(conn, search_by.to_string(), root.to_string(), 1000, 0)
+                .await
+            {
+                Ok(mut folders) => {
+                    folders.sort_by_key(|folder| folder.folder_name.to_lowercase());
+                    folders
+                }
+                Err(e) => return Self::error_context(&format!("File::get_folders() error: {e}")),
+            };
 
         // Get file count
-        let count = match FileSchema::count_all(&conn).await {
+        let count = match FileSchema::count_all(conn).await {
             Ok(count) => count,
             Err(e) => return Self::error_context(&format!("File::count_all() error: {e}")),
         };
 
         // Get roots
-        let roots = match FileSchema::get_roots(&conn).await {
+        let roots = match FileSchema::get_roots(conn).await {
             Ok(roots) => roots,
             Err(e) => return Self::error_context(&format!("File::get_roots() error: {e}")),
         };
 
         // Get and sort tags
-        let tags = match FileSchema::get_all_tags(&conn, search_by.to_string()).await {
+        let tags = match FileSchema::get_all_tags(conn, search_by.to_string()).await {
             Ok(mut tags) => {
                 tags.sort_by_key(|tag| tag.to_lowercase());
                 tags
-            },
+            }
             Err(e) => return Self::error_context(&format!("File::get_all_tags() error: {e}")),
         };
 
@@ -135,7 +140,9 @@ impl Context {
             extension.to_string(),
             *equal,
             *folders_size as i64,
-        ).await {
+        )
+        .await
+        {
             Ok(files) => Context {
                 flash,
                 files,

@@ -1,15 +1,15 @@
+use crate::DbConn;
 use crate::cache_files::{CachedImage, ImageCache};
 use crate::models::file::repository::FileSchema;
-use crate::DbConn;
 use image::{DynamicImage, ImageFormat};
+use rocket::http::ContentType;
 use rocket::http::Status;
-use rocket::response::{status};
-use rocket::serde::json::{json, Json, Value};
+use rocket::response::status;
+use rocket::serde::json::{Json, Value, json};
 use rocket::{Either, State};
 use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::Path;
-use rocket::http::ContentType;
 use std::time::Duration;
 
 // Helper function to determine content type from file extension
@@ -75,12 +75,10 @@ pub async fn retrieve_file(
     // Otherwise return the original file
     match read_file_to_buffer(&f_schema.path) {
         Ok(buffer) => Either::Left(create_cached_image(buffer, &f_schema.extention, 86400)), // Cache for 1 day,
-        Err(e) => {
-            return Either::Right(status::Custom(
-                Status::InternalServerError,
-                Json(json!({"error": format!("Database error occurred {}", e)})),
-            ));
-        }
+        Err(e) => Either::Right(status::Custom(
+            Status::InternalServerError,
+            Json(json!({"error": format!("Database error occurred {}", e)})),
+        )),
     }
 }
 
@@ -153,11 +151,10 @@ pub async fn get_thumbnail_folder(
                     image_height,
                     image::imageops::FilterType::Lanczos3,
                 );
-                
+
                 let buffer = create_image_buffer(f_schema, &resized_img);
                 cache.insert(cache_key, buffer.clone());
                 return Either::Left(create_cached_image(buffer, &f_schema.extention, 604800)); // Cache for 1 week
-
             }
             Err(err) => {
                 // Log the error but don't expose details to user
@@ -227,11 +224,10 @@ pub async fn get_thumbnail_photo(
                     image_height,
                     image::imageops::FilterType::Lanczos3,
                 );
-                
+
                 let buffer = create_image_buffer(&f_schema, &resized_img);
                 cache.insert(cache_key, buffer.clone());
                 return Either::Left(create_cached_image(buffer, &f_schema.extention, 604800)); // Cache for 1 week
-
             }
             Err(err) => {
                 // Log the error but don't expose details to user
@@ -246,7 +242,7 @@ pub async fn get_thumbnail_photo(
 
     // Return original file if no resizing needed
     match read_file_to_buffer(&f_schema.path) {
-        Ok(buffer) => Either::Left(create_cached_image(buffer, &f_schema.extention, 604800)), // Cache for 1 week        
+        Ok(buffer) => Either::Left(create_cached_image(buffer, &f_schema.extention, 604800)), // Cache for 1 week
         Err(_) => Either::Right(status::Custom(
             Status::InternalServerError,
             Json(json!({"error": "File not found or cannot be read"})),

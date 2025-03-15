@@ -13,14 +13,7 @@ pub async fn random(
     folders_size: Option<usize>,
 ) -> Template {
     let mut random_size = size.unwrap_or(0);
-    let mut random_folder_size = folders_size.unwrap_or(0);
-    if random_folder_size <= 0 {
-        random_folder_size = 0
-    }
-    
-    if random_size <= 0 {
-        random_size = 10
-    }
+    let random_folder_size = folders_size.unwrap_or(0);
 
     if random_size > 2000 {
         random_size = 2000
@@ -32,6 +25,17 @@ pub async fn random(
 
     Template::render(
         "random",
-        Context::random(&conn, flash, &random_size, folder, root, None, None, &equal_value, &random_folder_size).await,
+        Context::random(
+            &conn,
+            flash,
+            &random_size,
+            folder,
+            root,
+            None,
+            None,
+            &equal_value,
+            &random_folder_size,
+        )
+        .await,
     )
 }

@@ -1,14 +1,14 @@
 // Updated cache_files.rs
+use crate::models::file::repository::FileSchema;
 use moka::sync::Cache;
+use rocket::Request;
 use rocket::futures::lock::Mutex;
 use rocket::http::{ContentType, Header};
 use rocket::response::Responder;
-use rocket::Request;
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use crate::models::file::repository::FileSchema;
 
 pub type ImageCache = Arc<Cache<String, Vec<u8>>>;
 
@@ -38,8 +38,7 @@ impl<'r> Responder<'r, 'static> for CachedImage {
         let data_len = self.0.len();
 
         let mut binding = rocket::Response::build();
-        let mut response = binding
-            .sized_body(data_len, Cursor::new(self.0));
+        let mut response = binding.sized_body(data_len, Cursor::new(self.0));
 
         // Add Content-Type header if provided
         if let Some(content_type) = self.1 {
@@ -59,7 +58,9 @@ impl<'r> Responder<'r, 'static> for CachedImage {
         response = response.header(Header::new("ETag", etag_value));
 
         // Expires header
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default();
         let expiry_time = now + cache_duration;
         let expiry_secs = expiry_time.as_secs();
 
@@ -77,8 +78,8 @@ impl<'r> Responder<'r, 'static> for CachedImage {
 
 // Helper function to calculate a simple ETag value
 fn calculate_etag(data: &[u8]) -> String {
-    use std::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
 
     let mut hasher = DefaultHasher::new();
     data.hash(&mut hasher);
@@ -89,8 +90,10 @@ fn calculate_etag(data: &[u8]) -> String {
 fn format_http_date(secs: u64) -> String {
     use chrono::{TimeZone, Utc};
 
-    let dt = Utc.timestamp_opt(secs as i64, 0).single()
-        .unwrap_or_else(|| Utc::now());
+    let dt = Utc
+        .timestamp_opt(secs as i64, 0)
+        .single()
+        .unwrap_or_else(Utc::now);
 
     // Format according to RFC 7231
     dt.format("%a, %d %b %Y %H:%M:%S GMT").to_string()

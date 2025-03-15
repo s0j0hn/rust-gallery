@@ -1,11 +1,13 @@
-use diesel::{self, prelude::*, sql_types};
-use rocket::serde::json::serde_json;
-use std::collections::HashSet;
-use rocket::serde::Serialize;
 use crate::DbConn;
 use crate::models::file::model::files;
+use diesel::{self, prelude::*, sql_types};
+use rocket::serde::Serialize;
+use rocket::serde::json::serde_json;
+use std::collections::HashSet;
 
-#[derive(Serialize, AsChangeset, Queryable, Insertable, Identifiable, Clone, Hash, Eq, PartialEq)]
+#[derive(
+    Serialize, AsChangeset, Queryable, Insertable, Identifiable, Clone, Hash, Eq, PartialEq,
+)]
 #[serde(crate = "rocket::serde")]
 #[diesel(table_name = files)]
 pub struct FileSchema {
@@ -76,7 +78,7 @@ impl FileSchema {
                 .limit(max_results)
                 .load::<FileSchema>(c)
         })
-            .await
+        .await
     }
     pub async fn all_by_folder(conn: &DbConn, folder_name: String) -> QueryResult<Vec<FileSchema>> {
         conn.run(move |c| {
@@ -84,7 +86,7 @@ impl FileSchema {
                 .filter(files::folder_name.eq(folder_name))
                 .load::<FileSchema>(c)
         })
-            .await
+        .await
     }
 
     pub async fn all_by_tag(conn: &DbConn, tag: String) -> QueryResult<Vec<FileSchema>> {
@@ -94,7 +96,7 @@ impl FileSchema {
                 .filter(files::tags.like(search_pattern))
                 .load::<FileSchema>(c)
         })
-            .await
+        .await
     }
 
     pub async fn all_hashes(conn: &DbConn) -> QueryResult<Vec<String>> {
@@ -112,20 +114,22 @@ impl FileSchema {
         equal: bool,
         folders_size: i64,
     ) -> QueryResult<Vec<FileSchema>> {
-        if equal == true && folders_size > 0 {
+        if equal && folders_size > 0 {
             let random_folders = Self::get_random_folders(conn, root, folders_size).await?;
             let mut random_equal_files: HashSet<FileSchema> = HashSet::new();
 
             for folder in random_folders {
                 let folder_name = folder.clone();
-                let files = conn.run(move |c| {
-                    files::table
-                        .order(random())
-                        .filter(files::folder_name.eq(folder_name))
-                        .limit(size / folders_size)
-                        .load::<FileSchema>(c)
-                })
-                    .await.unwrap_or(vec![]);
+                let files = conn
+                    .run(move |c| {
+                        files::table
+                            .order(random())
+                            .filter(files::folder_name.eq(folder_name))
+                            .limit(size / folders_size)
+                            .load::<FileSchema>(c)
+                    })
+                    .await
+                    .unwrap_or(vec![]);
 
                 random_equal_files.extend(files);
             }
@@ -161,7 +165,7 @@ impl FileSchema {
                     .limit(size)
                     .load::<FileSchema>(c)
             })
-                .await
+            .await
         }
     }
 
@@ -179,7 +183,7 @@ impl FileSchema {
                 .limit(size)
                 .load::<String>(c)
         })
-            .await
+        .await
     }
 
     pub async fn get_folders(
@@ -203,12 +207,10 @@ impl FileSchema {
                 .limit(max_results)
                 .load::<FolderInfo>(c)
         })
-            .await
+        .await
     }
 
-    pub async fn get_folders_roots(
-        conn: &DbConn,
-    ) -> QueryResult<Vec<FolderRootsInfo>> {
+    pub async fn get_folders_roots(conn: &DbConn) -> QueryResult<Vec<FolderRootsInfo>> {
         conn.run(move |c| {
             files::table
                 .group_by(files::root)
@@ -219,13 +221,10 @@ impl FileSchema {
                 ))
                 .load::<FolderRootsInfo>(c)
         })
-            .await
+        .await
     }
 
-    pub async fn get_folder_by_name(
-        conn: &DbConn,
-        name: String,
-    ) -> QueryResult<Vec<FolderInfo>> {
+    pub async fn get_folder_by_name(conn: &DbConn, name: String) -> QueryResult<Vec<FolderInfo>> {
         conn.run(move |c| {
             files::table
                 .group_by((files::folder_name, files::root))
@@ -237,14 +236,14 @@ impl FileSchema {
                 .filter(files::folder_name.eq(name))
                 .load::<FolderInfo>(c)
         })
-            .await
+        .await
     }
 
     pub async fn get_roots(conn: &DbConn) -> QueryResult<Vec<String>> {
         conn.run(move |c| {
             diesel::QueryDsl::distinct(files::table.select(files::root)).load::<String>(c)
         })
-            .await
+        .await
     }
 
     pub async fn get_all_tags(conn: &DbConn, folder_name: String) -> QueryResult<Vec<String>> {
@@ -265,8 +264,8 @@ impl FileSchema {
             // Process the tags more efficiently
             let mut unique_tags = HashSet::new();
 
-            for tags_option in all_tags {
-                if let Some(tags_json) = tags_option {
+            for tags_option in all_tags.into_iter().flatten() {
+                if let tags_json = tags_option {
                     if let Ok(tags_array) = serde_json::from_str::<Vec<String>>(&tags_json) {
                         for tag in tags_array {
                             unique_tags.insert(tag);
@@ -277,7 +276,7 @@ impl FileSchema {
 
             Ok(unique_tags.into_iter().collect())
         })
-            .await
+        .await
     }
 
     pub async fn count_all(conn: &DbConn) -> QueryResult<i64> {
@@ -291,17 +290,16 @@ impl FileSchema {
                 .count()
                 .get_result(c)
         })
-            .await
+        .await
     }
 
     pub async fn get_by_hash(hash: String, conn: &DbConn) -> QueryResult<FileSchema> {
-        let hash = hash; // Take ownership here for clarity
         conn.run(move |c| {
             files::table
                 .filter(files::hash.eq(hash))
                 .first::<FileSchema>(c)
         })
-            .await
+        .await
     }
 
     pub async fn get_by_path(path: String, conn: &DbConn) -> QueryResult<Vec<FileSchema>> {
@@ -310,7 +308,7 @@ impl FileSchema {
                 .filter(files::path.eq(path))
                 .load::<FileSchema>(c)
         })
-            .await
+        .await
     }
 
     fn process_tags(tags: Vec<String>) -> String {
@@ -331,7 +329,7 @@ impl FileSchema {
                 .set(files::tags.eq(json_tags))
                 .execute(c)
         })
-            .await
+        .await
     }
 
     pub async fn add_tags_folder(
@@ -346,10 +344,10 @@ impl FileSchema {
                 .set(files::tags.eq(json_tags))
                 .execute(c)
         })
-            .await
+        .await
     }
 
-        /// Returns the number of affected rows: 1.
+    /// Returns the number of affected rows: 1.
     pub async fn insert(image: Image, conn: &DbConn) -> QueryResult<usize> {
         conn.run(move |c| {
             let t = FileSchema {
@@ -368,7 +366,7 @@ impl FileSchema {
                 .values(&t)
                 .execute(c)
         })
-            .await
+        .await
     }
 
     pub async fn delete_folder_with_name(name: String, conn: &DbConn) -> QueryResult<usize> {
@@ -377,7 +375,7 @@ impl FileSchema {
                 .filter(files::folder_name.eq(name))
                 .execute(c)
         })
-            .await
+        .await
     }
 
     /// Returns the number of affected rows: 1.
@@ -387,7 +385,7 @@ impl FileSchema {
                 .filter(files::id.eq(id))
                 .execute(c)
         })
-            .await
+        .await
     }
 
     pub async fn update(image: Image, conn: &DbConn) -> QueryResult<usize> {
@@ -411,7 +409,7 @@ impl FileSchema {
                 .set(&t)
                 .execute(c)
         })
-            .await
+        .await
     }
 
     /// Returns the number of affected rows.

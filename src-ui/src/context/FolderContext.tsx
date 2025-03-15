@@ -293,7 +293,7 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
                 checkIntervalRef.current = null
             }
 
-            if (response.status == 'success') {
+            if (response.status === 'success') {
                 setIsIndexing(false)
                 await refreshFolders()
             }

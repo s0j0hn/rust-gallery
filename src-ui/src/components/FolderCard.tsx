@@ -1,5 +1,5 @@
 import React, { FC, MouseEvent } from 'react'
-import { Camera, FolderOpen, Play, Tag, Trash2 } from 'lucide-react'
+import { Camera, Play, Tag, Trash2 } from 'lucide-react'
 import ThumbnailSlideshow from './ThumbnailSlideshow'
 import { Folder } from '../types/gallery'
 

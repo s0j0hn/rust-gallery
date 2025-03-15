@@ -13,43 +13,46 @@ extern crate rocket_sync_db_pools;
 // Core modules
 mod cache_files;
 mod context;
-mod models;
 mod handlers;
+mod models;
 
 #[cfg(test)]
 mod tests;
 
 // Import handlers organized by functionality
 use handlers::{
+    configs::handler::update_config,
     files::{
         files_download::{get_thumbnail_folder, retrieve_file},
         files_index::{get_files_by_extension, get_files_by_tag, index_files},
         random_files::random,
         tags::add_tags,
     },
-    folders::handler::{assign_tag, assign_tag_folder, delete_folder, get_folders, retrieve_folders},
+    folders::handler::{
+        assign_tag, assign_tag_folder, delete_folder, get_folders, retrieve_folders,
+    },
     json::random_files_json::{get_all_json, random_json},
-    tasks::task_manager::{cancel_task, ThreadManager},
-    configs::handler::update_config,
+    tasks::task_manager::{ThreadManager, cancel_task},
 };
 
 // Import models
 use models::file::repository::{FileSchema, FolderInfo};
 
 // Application state and dependencies
-use cache_files::{ImageCache, StateFiles};
-use moka::sync::Cache;
-use rocket::{fairing::AdHoc, fs::{relative, FileServer, Options}, serde::{Deserialize, Serialize}, Build, Rocket};
-use rocket_dyn_templates::Template;
-use std::{
-    collections::HashMap,
-    sync::Arc,
-    time::Duration,
-};
-use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions, Error};
 use crate::handlers::files::files_download::get_thumbnail_photo;
 use crate::handlers::files::tags::get_all_tags;
 use crate::handlers::folders::handler::{get_folder_by_name, get_folders_json, get_roots_json};
+use cache_files::{ImageCache, StateFiles};
+use moka::sync::Cache;
+use rocket::{
+    Build, Rocket,
+    fairing::AdHoc,
+    fs::{FileServer, Options, relative},
+    serde::{Deserialize, Serialize},
+};
+use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions, Error};
+use rocket_dyn_templates::Template;
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 /// Database connection pool for SQLite
 #[database("sqlite_database")]
@@ -69,7 +72,7 @@ struct Context {
 
 /// Run database migrations on application startup
 async fn run_migrations(rocket: Rocket<Build>) -> Rocket<Build> {
-    use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+    use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 
     const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
 
@@ -84,42 +87,10 @@ async fn run_migrations(rocket: Rocket<Build>) -> Rocket<Build> {
             Err(e) => error!("Failed to run database migrations: {}", e),
         }
     })
-        .await;
+    .await;
 
     rocket
 }
-
-/// Main route handler for the beta interface
-///
-/// Handles search parameters and root folder filtering
-// #[get("/?<searchby>&<root>")]
-// async fn beta_index(
-//     flash: Option<FlashMessage<'_>>,
-//     conn: DbConn,
-//     searchby: Option<&str>,
-//     root: Option<&str>,
-// ) -> Template {
-//     let flash = flash.map(FlashMessage::into_inner);
-// 
-//     // Process search parameters with defaults
-//     let search_term = searchby.unwrap_or("_");
-//     let root_term = root.unwrap_or("_");
-// 
-//     // Determine if we're doing an exact search or a pattern-matching search
-//     let (search_pattern, root_pattern): (String, String) = if search_term.starts_with("%") && search_term.ends_with("%") {
-//         // Exact search (remove % characters)
-//         (search_term.trim_matches('%').to_string(), root_term.trim_matches('%').to_string())
-//     } else {
-//         // Pattern matching search (add % for SQL LIKE)
-//         (format!("%{}%", search_term), format!("%{}%", root_term))
-//     };
-// 
-//     // Render template with folder context
-//     Template::render(
-//         "beta",
-//         Context::get_folders(&conn, flash, &search_pattern, &root_pattern).await,
-//     )
-// }
 
 /// Application configuration from Rocket.toml
 #[derive(Debug, Deserialize)]
@@ -139,17 +110,12 @@ fn make_cors() -> Result<rocket_cors::Cors, Error> {
             .into_iter()
             .map(|s| s.parse().unwrap())
             .collect(),
-        allowed_headers: AllowedHeaders::some(&[
-            "Authorization",
-            "Accept",
-            "Content-Type",
-        ]),
+        allowed_headers: AllowedHeaders::some(&["Authorization", "Accept", "Content-Type"]),
         allow_credentials: true,
         ..Default::default()
     }
-        .to_cors()
+    .to_cors()
 }
-
 
 /// Main application entrypoint
 #[launch]
@@ -159,7 +125,7 @@ fn rocket() -> _ {
 
     // CORS
     let cors = make_cors().expect("CORS configuration failed");
-    
+
     // Set up image cache with 4-day TTL
     let cache: ImageCache = Arc::new(
         Cache::builder()
@@ -177,21 +143,21 @@ fn rocket() -> _ {
         })
         .manage(cache)
         .manage(thread_manager)
-
         // Configuration
         .attach(cors)
         .attach(AdHoc::config::<AppConfig>())
         .attach(DbConn::fairing())
         .attach(Template::fairing())
         .attach(AdHoc::on_ignite("Run Migrations", run_migrations))
-
         // Static files
         .mount("/", FileServer::new(relative!("static"), options))
-
         // API routes, organized by functionality
         .mount("/configs", routes![update_config])
         //.mount("/beta", routes![beta_index])
-        .mount("/tags", routes![assign_tag, assign_tag_folder, get_all_tags])
+        .mount(
+            "/tags",
+            routes![assign_tag, assign_tag_folder, get_all_tags],
+        )
         .mount(
             "/files",
             routes![
@@ -208,5 +174,15 @@ fn rocket() -> _ {
                 get_thumbnail_photo
             ],
         )
-        .mount("/folders", routes![get_folders_json, get_roots_json, get_folder_by_name, retrieve_folders, get_thumbnail_folder, delete_folder])
+        .mount(
+            "/folders",
+            routes![
+                get_folders_json,
+                get_roots_json,
+                get_folder_by_name,
+                retrieve_folders,
+                get_thumbnail_folder,
+                delete_folder
+            ],
+        )
 }

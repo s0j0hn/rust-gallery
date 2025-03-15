@@ -12,11 +12,6 @@ export interface Root {
     root: string
 }
 
-export interface JsonResponseTags {
-    status: number
-    tags: string[]
-}
-
 export interface JsonResponseIndex {
     status: string
     task_running: boolean
