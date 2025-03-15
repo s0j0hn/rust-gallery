@@ -1,12 +1,11 @@
-
 use rocket::futures::lock::Mutex;
-use rocket::{tokio, State};
-use rocket::tokio::task::JoinHandle;
-use std::future::Future;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use rocket::serde::json::Json;
 use rocket::serde::Serialize;
+use rocket::serde::json::Json;
+use rocket::tokio::task::JoinHandle;
+use rocket::{State, tokio};
+use std::future::Future;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Manages background task execution and cancellation
 pub struct ThreadManager {
@@ -58,14 +57,6 @@ impl ThreadManager {
             result
         })
     }
-
-    /// Checks if a task is currently running
-
-
-    /// Requests cancellation of the current task
-    pub fn request_cancellation(&self) {
-        self.should_cancel.store(true, Ordering::SeqCst);
-    }
 }
 
 // Define a response struct for the cancel_task endpoint
@@ -74,13 +65,11 @@ impl ThreadManager {
 pub struct JsonTaskCancelResponse {
     status: String,
     message: String,
-    task_running: bool
+    task_running: bool,
 }
 
 #[get("/task/cancel")]
-pub async fn cancel_task(
-    thread_manager: &State<ThreadManager>,
-) -> Json<JsonTaskCancelResponse> {
+pub async fn cancel_task(thread_manager: &State<ThreadManager>) -> Json<JsonTaskCancelResponse> {
     let mut task_guard = thread_manager.task.lock().await;
 
     if task_guard.is_some() {
@@ -99,14 +88,14 @@ pub async fn cancel_task(
         Json(JsonTaskCancelResponse {
             status: "success".to_string(),
             message: "Indexation task has been canceled".to_string(),
-            task_running: false
+            task_running: false,
         })
     } else {
         // No task was running
         Json(JsonTaskCancelResponse {
             status: "info".to_string(),
             message: "No indexation task was running".to_string(),
-            task_running: false
+            task_running: false,
         })
     }
 }

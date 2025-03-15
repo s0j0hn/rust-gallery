@@ -2,10 +2,10 @@
 use crate::cache_files::StateFiles;
 use crate::models::file::repository::FileSchema;
 use crate::{Context, DbConn};
-use rocket::request::FlashMessage;
-use rocket::serde::json::{json, Json, Value};
-use rocket::serde::{Deserialize, Serialize};
 use rocket::State;
+use rocket::request::FlashMessage;
+use rocket::serde::json::{Json, Value, json};
+use rocket::serde::{Deserialize, Serialize};
 use rocket_dyn_templates::Template;
 
 #[derive(Serialize, Deserialize)]
@@ -110,7 +110,7 @@ pub async fn get_folders_json(
     } else {
         0
     };
-    
+
     // Default to "_" if parameters are not provided
     let search_term = searchby.unwrap_or("_");
 
@@ -118,12 +118,14 @@ pub async fn get_folders_json(
     let search_pattern = format_search_pattern(search_term);
 
     match FileSchema::get_folders(
-        &conn, 
-        search_pattern, 
+        &conn,
+        search_pattern,
         root.to_string(),
         items_per_page as i64,
         offset as i64,
-    ).await {
+    )
+    .await
+    {
         Ok(folders) => {
             // Map folders to response objects with tags
             let response: Vec<JsonFolderResponse> = folders
@@ -145,12 +147,8 @@ pub async fn get_folders_json(
 }
 
 #[get("/roots")]
-pub async fn get_roots_json(
-    conn: DbConn,
-) -> Json<Vec<JsonRootResponse>> {
-    match FileSchema::get_folders_roots(
-        &conn,
-    ).await {
+pub async fn get_roots_json(conn: DbConn) -> Json<Vec<JsonRootResponse>> {
+    match FileSchema::get_folders_roots(&conn).await {
         Ok(roots) => {
             // Map folders to response objects with tags
             let response: Vec<JsonRootResponse> = roots
@@ -171,14 +169,8 @@ pub async fn get_roots_json(
 }
 
 #[get("/json/name/<name>")]
-pub async fn get_folder_by_name(
-    conn: DbConn,
-    name: &str,
-) -> Json<Vec<JsonFolderResponse>> {
-    match FileSchema::get_folder_by_name(
-        &conn,
-        name.to_string(),
-    ).await {
+pub async fn get_folder_by_name(conn: DbConn, name: &str) -> Json<Vec<JsonFolderResponse>> {
+    match FileSchema::get_folder_by_name(&conn, name.to_string()).await {
         Ok(folders) => {
             // Map folders to response objects with tags
             let response: Vec<JsonFolderResponse> = folders

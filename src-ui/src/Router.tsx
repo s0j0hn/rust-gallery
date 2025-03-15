@@ -1,4 +1,3 @@
-// src-ui/src/Router.tsx
 import React from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import FolderList from './pages/FolderList'

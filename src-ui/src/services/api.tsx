@@ -6,7 +6,6 @@ import {
     JsonResponse,
     JsonResponseCancelTask,
     JsonResponseIndex,
-    JsonResponseTags,
     Photo,
     Root,
 } from '../types/gallery'
@@ -189,7 +188,7 @@ export const api = {
                 data: sanitizedName,
             })
             if (response.data) {
-                if (response.data.rows != 1) {
+                if (response.data.rows !== 1) {
                     throw new Error('Error while deleting folder')
                 }
             }

@@ -56,7 +56,6 @@ const FolderList: React.FC = () => {
     useEffect(() => {
         const rootParam = searchParams.get('root')
         if (rootParam && rootParam !== selectedRoot) {
-            console.log(rootParam)
             setSelectedRoot(rootParam)
         } else if (!rootParam && selectedRoot) {
             // If there's no root param but we have a selected root,

@@ -1,0 +1,70 @@
+# Use the latest 2.1 version of CircleCI pipeline process engine
+version: 2.1
+
+# Define orbs to reuse functionality
+orbs:
+  node: circleci/node@7.1.0
+  rust: circleci/rust@1.6.2
+
+# Define jobs
+jobs:
+  validate-rust:
+    docker:
+      - image: cimg/rust:1.85.0
+    steps:
+      - checkout
+      - rust/install:
+          version: 1.85.0
+      - rust/clippy
+      - run:
+          name: Check formatting
+          command: cargo fmt -- --check
+      - run:
+          name: Run tests
+          command: cargo test
+      - run:
+          name: Build release
+          command: cargo build --release
+
+  validate-react:
+    docker:
+      - image: cimg/node:23.10.0
+    steps:
+      - checkout
+      - node/install:
+          install-pnpm: true
+          node-version: '23.10.0'
+      - node/install-packages:
+          app-dir: src-ui
+          pkg-manager: pnpm
+      - run:
+          name: Check code formatting
+          command: cd src-ui && npx prettier --check .
+      - run:
+          name: Build frontend
+          command: cd src-ui && pnpm run build
+
+  build-docker:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 20.10.7
+      - run:
+          name: Build Docker image
+          command: make docker-build
+
+# Orchestrate workflow
+workflows:
+  validate-and-build:
+    jobs:
+      - validate-rust
+      - validate-react
+      - build-docker:
+          requires:
+            - validate-rust
+            - validate-react
+          filters:
+            branches:
+              only: main

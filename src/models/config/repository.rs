@@ -1,9 +1,11 @@
-use diesel::{ExpressionMethods, QueryDsl, QueryResult, RunQueryDsl};
-use rocket::serde::{Deserialize, Serialize};
 use crate::DbConn;
 use crate::models::config::model::config;
+use diesel::{ExpressionMethods, QueryDsl, QueryResult, RunQueryDsl};
+use rocket::serde::{Deserialize, Serialize};
 
-#[derive(Serialize, AsChangeset, Queryable, Insertable, Identifiable, Clone, Hash, Eq, PartialEq)]
+#[derive(
+    Serialize, AsChangeset, Queryable, Insertable, Identifiable, Clone, Hash, Eq, PartialEq,
+)]
 #[serde(crate = "rocket::serde")]
 #[diesel(table_name = config)]
 pub struct ConfigSchema {
@@ -19,19 +21,15 @@ pub struct ConfigInfo {
 }
 
 impl ConfigSchema {
-
     pub async fn get_config(conn: &DbConn) -> QueryResult<Vec<ConfigSchema>> {
         conn.run(move |c| {
             config::table
                 .filter(config::id.eq(1))
                 .load::<ConfigSchema>(c)
         })
-            .await
+        .await
     }
-    pub async fn update(
-        conn: &DbConn,
-        config: ConfigInfo,
-    ) -> QueryResult<usize> {
+    pub async fn update(conn: &DbConn, config: ConfigInfo) -> QueryResult<usize> {
         conn.run(move |c| {
             let t = ConfigSchema {
                 id: 1,
@@ -44,6 +42,6 @@ impl ConfigSchema {
                 .set(&t)
                 .execute(c)
         })
-            .await
-    } 
+        .await
+    }
 }
