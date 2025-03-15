@@ -1,63 +1,80 @@
 // Define TypeScript interfaces for our data structures
-export interface Album {
-    id: number;
-    title: string;
-    thumbnails: string[];
-    photoCount: number;
-    tags: string[];
-    folder: string;
+export interface Folder {
+    title: string
+    thumbnails: string[]
+    photo_count: number
+    tags: string[]
+    root: string
+}
+
+export interface Root {
+    photo_count: number
+    root: string
+}
+
+export interface JsonResponseTags {
+    status: number
+    tags: string[]
+}
+
+export interface JsonResponseIndex {
+    status: string
+    task_running: boolean
+    message: string
+    last_indexed?: number
+}
+
+export interface JsonResponseCancelTask {
+    status: 'info' | 'success'
+    task_running: boolean
+    message: string
+}
+
+export interface JsonResponse<T> {
+    total: number
+    page: number
+    items: T
+}
+
+export interface JsonFilePhoto {
+    id: number
+    path: string
+    hash: string
+    extention: string
+    filename: string
+    folder_name: string
+    width: number
+    height: number
+    tags: string
+    root: string
 }
 
 export interface Photo {
-    id: number;
-    title: string;
-    thumbnail: string;
-    src: string;
-    w: number;
-    h: number;
-    tags: string[];
-    albumId?: number; // Optional property, present when viewing photos by tag
-}
-
-export interface ThumbnailSlideshowProps {
-    thumbnails: string[];
-}
-
-export interface TagPhotoViewProps {
-    tag: string;
-    onBack: () => void;
-    isMobile: boolean;
-}
-
-export interface AlbumDetailProps {
-    albumId: number;
-    onBack: () => void;
-    onTagClick: (type: 'tag' | 'folder', value: string) => void;
-    isMobile: boolean;
+    id: number
+    title: string
+    thumbnail: string
+    src: string
+    w: number
+    h: number
+    tags: string[]
+    folderName?: string // Optional property, present when viewing photos by tag
 }
 
 export interface MenuSectionProps {
-    albums: Album[];
-    searchQuery: string;
-    setSearchQuery: (query: string) => void;
-    selectedFolder: string | null;
-    setSelectedFolder: (folder: string | null) => void;
-    onTagClick: (type: 'tag' | 'folder', value: string) => void;
-    onIndexation: () => void;
-    onApiDocsClick?: () => void;
-    isIndexing: boolean;
+    folders?: Folder[]
+    tags?: string[]
+    searchQuery?: string
+    setSearchQuery?: (query: string) => void
+    selectedRoot?: string | null
+    setSelectedRoot?: (folder: string | null) => void
+    onTagClick?: (type: 'tag' | 'root', value: string) => void
+    onIndexation?: () => void
+    onApiDocsClick?: () => void
+    isIndexing?: boolean
+    isOpen?: boolean
+    onClose?: () => void
 }
 
 export interface RandomPhotoProps {
-    photo: {
-        id: number;
-        title: string;
-        src: string;
-        w: number;
-        h: number;
-        albumId?: number;
-    };
-    onClose: () => void;
-    onShowAnother: () => void;
-    onViewAlbum: () => void;
+    photos: JsonFilePhoto[]
 }

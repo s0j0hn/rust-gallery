@@ -1,106 +1,307 @@
-import axios from 'axios';
-import {Album, Photo} from "../types/gallery";
+import axios, { AxiosError } from 'axios'
+import DOMPurify from 'dompurify'
+import {
+    Folder,
+    JsonFilePhoto,
+    JsonResponse,
+    JsonResponseCancelTask,
+    JsonResponseIndex,
+    JsonResponseTags,
+    Photo,
+    Root,
+} from '../types/gallery'
+
+// Sanitization utilities
+const sanitize = {
+    // Basic string sanitization
+    string: (value: string): string => {
+        return DOMPurify.sanitize(value)
+    },
+
+    // Sanitize folder name (more restrictive)
+    folderName: (name: string): string => {
+        // First apply basic sanitization
+        const sanitized = DOMPurify.sanitize(name)
+        // Additionally remove any characters that shouldn't be in folder names
+        return sanitized.replace(/[^a-zA-Z0-9_\-. ]/g, '')
+    },
+
+    // Sanitize array of strings
+    stringArray: (arr: string[]): string[] => {
+        return arr.map((item) => DOMPurify.sanitize(item))
+    },
+
+    // Safe query params
+    queryParams: (params: Record<string, any>): Record<string, any> => {
+        const sanitizedParams: Record<string, any> = {}
+
+        for (const key in params) {
+            if (params[key] === undefined) continue
+
+            if (typeof params[key] === 'string') {
+                sanitizedParams[key] = DOMPurify.sanitize(params[key])
+            } else {
+                sanitizedParams[key] = params[key]
+            }
+        }
+
+        return sanitizedParams
+    },
+}
 
 // Create an axios instance with default config
 const apiClient = axios.create({
-    baseURL: 'http://192.168.1.27:8000',
+    baseURL: 'http://192.168.1.27:8000/',
     headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
     },
-    timeout: 10000 // 10 seconds timeout
-});
+    timeout: 10000, // 10 seconds timeout
+})
 
-// API endpoints
-const endpoints = {
-    albums: '/albums',
-    photos: '/photos',
-    tags: '/tags',
-    folders: '/folders',
-    indexPhotos: '/index'
-};
+// Add response interceptor for error handling
+apiClient.interceptors.response.use(
+    // Success handler
+    (response) => response,
+    // Error handler
+    (error: AxiosError) => {
+        // Log the error but don't expose sensitive information to users
+        console.error('API request failed:', {
+            url: error.config?.url,
+            method: error.config?.method,
+            status: error.response?.status,
+            message: error.message,
+        })
+
+        // You can handle specific status codes
+        if (error.response) {
+            switch (error.response.status) {
+                case 400:
+                    return Promise.reject(
+                        new Error(
+                            'Invalid request. Please check your input and try again.'
+                        )
+                    )
+                case 401:
+                    return Promise.reject(
+                        new Error('You need to log in to perform this action.')
+                    )
+                case 403:
+                    return Promise.reject(
+                        new Error(
+                            "You don't have permission to perform this action."
+                        )
+                    )
+                case 404:
+                    return Promise.reject(
+                        new Error('The requested resource was not found.')
+                    )
+                case 429:
+                    return Promise.reject(
+                        new Error('Too many requests. Please try again later.')
+                    )
+                case 500:
+                case 502:
+                case 503:
+                case 504:
+                    return Promise.reject(
+                        new Error('Server error. Please try again later.')
+                    )
+                default:
+                    return Promise.reject(
+                        new Error(
+                            'An unexpected error occurred. Please try again later.'
+                        )
+                    )
+            }
+        }
+
+        // Network errors
+        if (error.code === 'ECONNABORTED') {
+            return Promise.reject(
+                new Error(
+                    'Request timeout. Please check your connection and try again.'
+                )
+            )
+        }
+
+        if (!navigator.onLine) {
+            return Promise.reject(
+                new Error(
+                    'You are offline. Please check your internet connection.'
+                )
+            )
+        }
+
+        return Promise.reject(
+            new Error(
+                'An error occurred while connecting to the server. Please try again later.'
+            )
+        )
+    }
+)
 
 // API methods
 export const api = {
-    // Album-related API calls
-    albums: {
-        // Get all albums
-        getAll: async (): Promise<Album[]> => {
-            const response = await apiClient.get(endpoints.albums);
-            return response.data;
+    // Folder-related API calls
+    folders: {
+        // Get all roots folders
+        getRoots: async (): Promise<Root[]> => {
+            const response = await apiClient.get('/folders/roots')
+            return response.data
         },
 
-        // Get album by ID
-        getById: async (id: number): Promise<Album> => {
-            const response = await apiClient.get(`${endpoints.albums}/${id}`);
-            return response.data;
+        // Get all folders
+        getAll: async (
+            page: number = 1,
+            perPage: number = 15,
+            root: string,
+            searchBy?: string
+        ): Promise<Folder[]> => {
+            const sanitizedRoot = root ? sanitize.folderName(root) : undefined
+            const sanitizedSearchBy = searchBy
+                ? sanitize.string(searchBy)
+                : undefined
+
+            const params = sanitize.queryParams({
+                root: sanitizedRoot,
+                per_page: perPage,
+                page,
+                searchby: sanitizedSearchBy,
+            })
+
+            const response = await apiClient.get('/folders/json', { params })
+            return response.data
+        },
+
+        // Get folder by name
+        getByName: async (folderName: string): Promise<Folder | null> => {
+            const sanitizedName = sanitize.folderName(folderName)
+            const response = await apiClient.get(
+                `/folders/json/name/${sanitizedName}`
+            )
+            return response.data[0] ? response.data[0] : null
         },
 
         // Delete album
-        delete: async (id: number): Promise<void> => {
-            await apiClient.delete(`${endpoints.albums}/${id}`);
+        delete: async (folderName: string): Promise<void> => {
+            const sanitizedName = sanitize.folderName(folderName)
+            const response = await apiClient.post(`/folders/delete`, {
+                data: sanitizedName,
+            })
+            if (response.data) {
+                if (response.data.rows != 1) {
+                    throw new Error('Error while deleting folder')
+                }
+            }
         },
 
         // Update album tags
-        updateTags: async (id: number, tags: string[]): Promise<Album> => {
-            const response = await apiClient.put(`${endpoints.albums}/${id}/tags`, { tags });
-            return response.data;
-        }
+        updateTags: async (
+            folderName: string,
+            tags: string[]
+        ): Promise<string[]> => {
+            const sanitizedName = sanitize.folderName(folderName)
+            const sanitizedTags = sanitize.stringArray(tags)
+
+            const response = await apiClient.post(`/tags/assign/folder`, {
+                tags: sanitizedTags,
+                folder_name: sanitizedName,
+            })
+            return response.data.tags ? response.data.tags : []
+        },
     },
 
     // Photo-related API calls
     photos: {
         // Get photos by album ID
-        getByAlbumId: async (albumId: number): Promise<Photo[]> => {
-            const response = await apiClient.get(`${endpoints.albums}/${albumId}/photos`);
-            return response.data;
+        getAllByFolder: async (
+            folderName: string,
+            perPage: number = 50,
+            page: number = 1
+        ): Promise<JsonResponse<JsonFilePhoto[]>> => {
+            const sanitizedName = sanitize.folderName(folderName)
+
+            const params = sanitize.queryParams({
+                folder: sanitizedName,
+                per_page: perPage,
+                page: page,
+            })
+
+            const response = await apiClient.get(`/files/json`, { params })
+            return response.data
         },
 
         // Get photos by tag
-        getByTag: async (tag: string): Promise<Photo[]> => {
-            const response = await apiClient.get(`${endpoints.photos}?tag=${encodeURIComponent(tag)}`);
-            return response.data;
+        getRandomByTag: async (tag: string): Promise<Photo[]> => {
+            const sanitizedTag = sanitize.string(tag)
+            const response = await apiClient.get(
+                `/files?tag=${encodeURIComponent(sanitizedTag)}`
+            )
+            return response.data
         },
 
         // Get random photo from album
-        getRandomsFromAlbum: async (albumId: number): Promise<Photo[]> => {
-            const response = await apiClient.get(`${endpoints.albums}/${albumId}/photos/random`);
-            return response.data;
+        getRandomByFolder: async (
+            folderName: string,
+            size: number = 200
+        ): Promise<JsonResponse<JsonFilePhoto[]>> => {
+            const sanitizedName = sanitize.folderName(folderName)
+
+            const params = sanitize.queryParams({
+                size,
+                folder: sanitizedName,
+            })
+
+            const response = await apiClient.get(`/files/random/json`, {
+                params,
+            })
+            return response.data
         },
 
         // Update photo tags
-        updateTags: async (id: number, tags: string[]): Promise<Photo> => {
-            const response = await apiClient.put(`${endpoints.photos}/${id}/tags`, { tags });
-            return response.data;
-        }
+        updateTags: async (
+            imageHash: string,
+            tags: string[]
+        ): Promise<string[]> => {
+            const sanitizedHash = sanitize.string(imageHash)
+            const sanitizedTags = sanitize.stringArray(tags)
+
+            const response = await apiClient.post(`/tags/assign`, {
+                tags: sanitizedTags,
+                image_hash: sanitizedHash,
+            })
+            return response.data.tags ? response.data.tags : []
+        },
     },
 
     // Tag-related API calls
     tags: {
         // Get all tags
-        getAll: async (): Promise<string[]> => {
-            const response = await apiClient.get(endpoints.tags);
-            return response.data;
-        }
-    },
+        getAll: async (folderName?: string): Promise<string[]> => {
+            let params = {}
+            if (folderName) {
+                const sanitizedName = sanitize.folderName(folderName)
+                params = { folder: sanitizedName }
+            }
 
-    // Folder-related API calls
-    folders: {
-        // Get all folders
-        getAll: async (): Promise<string[]> => {
-            const response = await apiClient.get(endpoints.folders);
-            return response.data;
-        }
+            const response = await apiClient.get('/tags', { params })
+            return response.data
+        },
     },
 
     // Indexation API call
     indexation: {
         // Trigger photo indexation
-        indexPhotos: async (): Promise<{ indexed: number }> => {
-            const response = await apiClient.post(endpoints.indexPhotos);
-            return response.data;
-        }
-    }
-};
+        indexPhotos: async (): Promise<JsonResponseIndex> => {
+            const response = await apiClient.get('/files/task/index')
+            return response.data
+        },
+        cancelIndexTask: async (): Promise<JsonResponseCancelTask> => {
+            const response = await apiClient.get('/files/task/cancel')
+            return response.data
+        },
+    },
+}
 
 // Export the API client for direct use when needed
-export default apiClient;
+export default apiClient

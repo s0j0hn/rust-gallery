@@ -1,11 +1,12 @@
+// use rocket::futures::future::join_all;
+use crate::cache_files::StateFiles;
+use crate::models::file::repository::FileSchema;
+use crate::{Context, DbConn};
+use rocket::request::FlashMessage;
 use rocket::serde::json::{json, Json, Value};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::State;
-use rocket::request::FlashMessage;
 use rocket_dyn_templates::Template;
-use crate::cache_files::StateFiles;
-use crate::{Context, DbConn};
-use crate::models::file::repository::FileSchema;
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
@@ -56,7 +57,8 @@ pub async fn delete_folder(conn: DbConn, data: Json<DeleteFolder>) -> Value {
 
 #[post("/assign/folder", format = "json", data = "<data>")]
 pub async fn assign_tag_folder(conn: DbConn, data: Json<TagFolderAssign>) -> Value {
-    let result = FileSchema::add_tags_folder(&conn, data.folder_name.clone(), data.tags.clone()).await;
+    let result =
+        FileSchema::add_tags_folder(&conn, data.folder_name.clone(), data.tags.clone()).await;
     create_response(&result, json!({ "status": "ok", "tags": data.tags }))
 }
 
@@ -73,6 +75,128 @@ pub async fn get_folders(
         "files",
         Context::get_all_folders(&conn, flash, Some(folder), state_files).await,
     )
+}
+
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+pub struct JsonFolderResponse {
+    title: String,
+    photo_count: usize,
+    tags: Vec<String>,
+    root: String,
+}
+
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+pub struct JsonRootResponse {
+    root: String,
+    photo_count: usize,
+    folder_count: usize,
+}
+
+#[get("/json?<searchby>&<root>&<page>&<per_page>")]
+pub async fn get_folders_json(
+    conn: DbConn,
+    root: &str,
+    searchby: Option<&str>,
+    page: Option<usize>,
+    per_page: Option<usize>,
+) -> Json<Vec<JsonFolderResponse>> {
+    let current_page = page.unwrap_or(1);
+    let items_per_page = per_page.unwrap_or(25);
+    // Calculate offset (avoid underflow by checking page > 0)
+    let offset = if current_page > 0 {
+        (current_page - 1) * items_per_page
+    } else {
+        0
+    };
+    
+    // Default to "_" if parameters are not provided
+    let search_term = searchby.unwrap_or("_");
+
+    // Format search patterns for both search and root
+    let search_pattern = format_search_pattern(search_term);
+
+    match FileSchema::get_folders(
+        &conn, 
+        search_pattern, 
+        root.to_string(),
+        items_per_page as i64,
+        offset as i64,
+    ).await {
+        Ok(folders) => {
+            // Map folders to response objects with tags
+            let response: Vec<JsonFolderResponse> = folders
+                .into_iter()
+                .map(|f| JsonFolderResponse {
+                    title: f.folder_name.clone(),
+                    photo_count: f.count as usize,
+                    tags: vec![],
+                    root: f.root,
+                })
+                .collect();
+            Json(response)
+        }
+        Err(e) => {
+            error!("Error retrieving folders: {e}");
+            Json(Vec::new()) // Return empty array on error
+        }
+    }
+}
+
+#[get("/roots")]
+pub async fn get_roots_json(
+    conn: DbConn,
+) -> Json<Vec<JsonRootResponse>> {
+    match FileSchema::get_folders_roots(
+        &conn,
+    ).await {
+        Ok(roots) => {
+            // Map folders to response objects with tags
+            let response: Vec<JsonRootResponse> = roots
+                .into_iter()
+                .map(|r| JsonRootResponse {
+                    root: r.root,
+                    photo_count: r.count as usize,
+                    folder_count: r.f_count as usize,
+                })
+                .collect();
+            Json(response)
+        }
+        Err(e) => {
+            error!("Error retrieving roots: {e}");
+            Json(Vec::new()) // Return empty array on error
+        }
+    }
+}
+
+#[get("/json/name/<name>")]
+pub async fn get_folder_by_name(
+    conn: DbConn,
+    name: &str,
+) -> Json<Vec<JsonFolderResponse>> {
+    match FileSchema::get_folder_by_name(
+        &conn,
+        name.to_string(),
+    ).await {
+        Ok(folders) => {
+            // Map folders to response objects with tags
+            let response: Vec<JsonFolderResponse> = folders
+                .into_iter()
+                .map(|f| JsonFolderResponse {
+                    title: f.folder_name.clone(),
+                    photo_count: f.count as usize,
+                    tags: vec![],
+                    root: f.root,
+                })
+                .collect();
+            Json(response)
+        }
+        Err(e) => {
+            error!("Error retrieving folders: {e}");
+            Json(Vec::new()) // Return empty array on error
+        }
+    }
 }
 
 // Helper function to format search pattern
