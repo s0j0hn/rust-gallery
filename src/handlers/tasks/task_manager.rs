@@ -1,11 +1,11 @@
 use rocket::futures::lock::Mutex;
-use rocket::serde::Serialize;
 use rocket::serde::json::Json;
+use rocket::serde::Serialize;
 use rocket::tokio::task::JoinHandle;
-use rocket::{State, tokio};
+use rocket::{tokio, State};
 use std::future::Future;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 /// Manages background task execution and cancellation
 pub struct ThreadManager {

@@ -1,5 +1,5 @@
-use crate::DbConn;
 use crate::models::config::model::config;
+use crate::DbConn;
 use diesel::{ExpressionMethods, QueryDsl, QueryResult, RunQueryDsl};
 use rocket::serde::{Deserialize, Serialize};
 

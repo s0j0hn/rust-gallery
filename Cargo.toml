@@ -1,6 +1,6 @@
 [package]
 name = "rusty-images"
-version = "0.4.0"
+version = "0.4.3"
 edition = "2024"
 
 [profile.release]
@@ -23,8 +23,4 @@ chrono = "0.4.40"
 [dependencies.rocket_sync_db_pools]
 version = "0.1.0"
 features = ["diesel_sqlite_pool"]
-
-[dependencies.rocket_dyn_templates]
-version = "0.2.0"
-features = ["tera"]
 

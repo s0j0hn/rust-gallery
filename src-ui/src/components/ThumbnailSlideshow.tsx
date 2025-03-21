@@ -1,10 +1,9 @@
-// src/components/ThumbnailSlideshow.tsx
-import React, { FC, useEffect, useState, useCallback } from 'react'
+import React, { FC, useCallback, useEffect, useState } from 'react'
 import {
-    getCachedImageUrl,
     cacheImageUrl,
-    preloadImage,
     generateThumbnailUrl,
+    getCachedImageUrl,
+    preloadImage,
 } from '../utils/imageCacheUtils'
 
 interface ThumbnailSlideshowProps {

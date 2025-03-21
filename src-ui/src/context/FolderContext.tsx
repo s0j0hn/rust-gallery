@@ -3,16 +3,16 @@ import React, {
     ReactNode,
     useCallback,
     useEffect,
-    useState,
     useRef,
+    useState,
 } from 'react'
-import { Folder, Root } from '../types/gallery'
+import { Folder, JsonRootResponse } from '../types/gallery'
 import { api } from '../services/api'
 import { Location, useLocation, useNavigate } from 'react-router-dom'
 
 interface FolderContextType {
     folders: Folder[]
-    roots: Root[]
+    roots: JsonRootResponse[]
     tags: string[]
     filteredFolders: Folder[]
     loading: boolean
@@ -59,7 +59,7 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
     children,
 }) => {
     const [folders, setFolders] = useState<Folder[]>([])
-    const [roots, setFolderRoots] = useState<Root[]>([])
+    const [roots, setFolderRoots] = useState<JsonRootResponse[]>([])
     const [tags, setTags] = useState<string[]>([])
     const [filteredFolders, setFilteredFolders] = useState<Folder[]>([])
     const [loading, setLoading] = useState<boolean>(true)
@@ -248,6 +248,7 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
             setFilteredFolders((prevFolders) =>
                 prevFolders.filter((folder) => folder.title !== folderTitle)
             )
+            refreshFolders()
         } catch (err) {
             console.error(`Failed to delete folder ${folderTitle}:`, err)
             throw err

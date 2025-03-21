@@ -1,4 +1,3 @@
-// src-ui/src/components/TagDialog.tsx
 import React, { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { Folder } from '../types/gallery'

@@ -7,7 +7,7 @@ export interface Folder {
     root: string
 }
 
-export interface Root {
+export interface JsonRootResponse {
     photo_count: number
     root: string
 }

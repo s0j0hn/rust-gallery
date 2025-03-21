@@ -6,8 +6,7 @@ import {
     JsonResponse,
     JsonResponseCancelTask,
     JsonResponseIndex,
-    Photo,
-    Root,
+    JsonRootResponse,
 } from '../types/gallery'
 
 // Sanitization utilities
@@ -144,7 +143,7 @@ export const api = {
     // Folder-related API calls
     folders: {
         // Get all roots folders
-        getRoots: async (): Promise<Root[]> => {
+        getRoots: async (): Promise<JsonRootResponse[]> => {
             const response = await apiClient.get('/folders/roots')
             return response.data
         },
@@ -185,7 +184,7 @@ export const api = {
         delete: async (folderName: string): Promise<void> => {
             const sanitizedName = sanitize.folderName(folderName)
             const response = await apiClient.post(`/folders/delete`, {
-                data: sanitizedName,
+                folder_name: sanitizedName,
             })
             if (response.data) {
                 if (response.data.rows !== 1) {
@@ -230,12 +229,26 @@ export const api = {
             return response.data
         },
 
-        // Get photos by tag
-        getRandomByTag: async (tag: string): Promise<Photo[]> => {
-            const sanitizedTag = sanitize.string(tag)
-            const response = await apiClient.get(
-                `/files?tag=${encodeURIComponent(sanitizedTag)}`
-            )
+        // Get random photos by tag
+        getRandomByTag: async (
+            tag: string,
+            size: number,
+            equal?: boolean
+        ): Promise<JsonResponse<JsonFilePhoto[]>> => {
+            let params = {}
+            if (tag) {
+                const sanitizedTag = sanitize.folderName(tag)
+                params = {
+                    tag: sanitizedTag,
+                    equal: equal,
+                    size: size,
+                }
+            }
+
+            const response = await apiClient.get('/files/random/json', {
+                params,
+            })
+
             return response.data
         },
 

@@ -12,7 +12,6 @@ extern crate rocket_sync_db_pools;
 
 // Core modules
 mod cache_files;
-mod context;
 mod handlers;
 mod models;
 
@@ -24,19 +23,15 @@ use handlers::{
     configs::handler::update_config,
     files::{
         files_download::{get_thumbnail_folder, retrieve_file},
-        files_index::{get_files_by_extension, get_files_by_tag, index_files},
-        random_files::random,
+        files_index::index_files,
         tags::add_tags,
     },
     folders::handler::{
-        assign_tag, assign_tag_folder, delete_folder, get_folders, retrieve_folders,
+        assign_tag, assign_tag_folder, delete_folder,
     },
     json::random_files_json::{get_all_json, random_json},
-    tasks::task_manager::{ThreadManager, cancel_task},
+    tasks::task_manager::{cancel_task, ThreadManager},
 };
-
-// Import models
-use models::file::repository::{FileSchema, FolderInfo};
 
 // Application state and dependencies
 use crate::handlers::files::files_download::get_thumbnail_photo;
@@ -45,34 +40,21 @@ use crate::handlers::folders::handler::{get_folder_by_name, get_folders_json, ge
 use cache_files::{ImageCache, StateFiles};
 use moka::sync::Cache;
 use rocket::{
-    Build, Rocket,
-    fairing::AdHoc,
-    fs::{FileServer, Options, relative},
-    serde::{Deserialize, Serialize},
+    fairing::AdHoc, fs::{relative, FileServer, Options},
+    serde::{Deserialize},
+    Build,
+    Rocket,
 };
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions, Error};
-use rocket_dyn_templates::Template;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 /// Database connection pool for SQLite
 #[database("sqlite_database")]
 pub struct DbConn(diesel::SqliteConnection);
 
-/// Context struct for rendering templates
-#[derive(Serialize)]
-#[serde(crate = "rocket::serde")]
-struct Context {
-    flash: Option<(String, String)>,
-    files: Vec<FileSchema>,
-    folders: Vec<FolderInfo>,
-    count_files: i64,
-    roots: Vec<String>,
-    tags: Vec<String>,
-}
-
 /// Run database migrations on application startup
 async fn run_migrations(rocket: Rocket<Build>) -> Rocket<Build> {
-    use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
+    use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 
     const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
 
@@ -147,7 +129,6 @@ fn rocket() -> _ {
         .attach(cors)
         .attach(AdHoc::config::<AppConfig>())
         .attach(DbConn::fairing())
-        .attach(Template::fairing())
         .attach(AdHoc::on_ignite("Run Migrations", run_migrations))
         // Static files
         .mount("/", FileServer::new(relative!("static"), options))
@@ -162,15 +143,11 @@ fn rocket() -> _ {
             "/files",
             routes![
                 add_tags,
-                get_folders,
                 index_files,
                 cancel_task,
                 retrieve_file,
-                random,
                 random_json,
                 get_all_json,
-                get_files_by_tag,
-                get_files_by_extension,
                 get_thumbnail_photo
             ],
         )
@@ -180,7 +157,6 @@ fn rocket() -> _ {
                 get_folders_json,
                 get_roots_json,
                 get_folder_by_name,
-                retrieve_folders,
                 get_thumbnail_folder,
                 delete_folder
             ],

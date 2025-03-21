@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
     cacheImageUrl,
-    getCachedImageUrl,
     clearImageCache,
+    generateThumbnailUrl,
+    getCachedImageUrl,
     getCacheStats,
     preloadImage,
-    generateThumbnailUrl,
 } from '../utils/imageCacheUtils'
 
 interface ImageCacheStats {

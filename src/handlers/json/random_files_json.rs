@@ -1,11 +1,10 @@
-use crate::DbConn;
 use crate::models::file::repository::FileSchema;
-use rocket::serde::Serialize;
+use crate::DbConn;
 use rocket::serde::json::Json;
+use rocket::serde::Serialize;
 
 // Default values for optional parameters
 const DEFAULT_FILTER: &str = "*";
-const EQUAL_FLAG: bool = false;
 const FOLDERS_SIZE: i64 = 0;
 
 #[derive(Serialize)]
@@ -56,24 +55,28 @@ fn normalize_size(size: Option<usize>, min: usize, max: usize) -> usize {
     size.unwrap_or(min).clamp(min, max)
 }
 
-#[get("/random/json?<size>&<folder>", format = "json")]
+#[get("/random/json?<size>&<folder>&<tag>&<equal>", format = "json")]
 pub async fn random_json(
     conn: DbConn,
     size: Option<usize>,
     folder: Option<&str>,
+    tag: Option<&str>,
+    equal: Option<bool>,
 ) -> Json<JsonFileResponse> {
     // Normalize size with constraints (default: 10, min: 10, max: 2000)
     let random_size = normalize_size(size, 10, 2000);
     let folder_filter = folder.unwrap_or("*");
+    let tag_filter = tag.unwrap_or("*");
+    let equal_filter = equal.unwrap_or(true);
 
     match FileSchema::random(
         &conn,
         folder_filter.to_string(),
         random_size as i64,
         DEFAULT_FILTER.to_string(),
+        tag_filter.to_string(),
         DEFAULT_FILTER.to_string(),
-        DEFAULT_FILTER.to_string(),
-        EQUAL_FLAG,
+        equal_filter,
         FOLDERS_SIZE,
     )
     .await

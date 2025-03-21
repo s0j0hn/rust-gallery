@@ -1,12 +1,7 @@
-// use rocket::futures::future::join_all;
-use crate::cache_files::StateFiles;
 use crate::models::file::repository::FileSchema;
-use crate::{Context, DbConn};
-use rocket::State;
-use rocket::request::FlashMessage;
-use rocket::serde::json::{Json, Value, json};
+use crate::{DbConn};
+use rocket::serde::json::{json, Json, Value};
 use rocket::serde::{Deserialize, Serialize};
-use rocket_dyn_templates::Template;
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
@@ -60,21 +55,6 @@ pub async fn assign_tag_folder(conn: DbConn, data: Json<TagFolderAssign>) -> Val
     let result =
         FileSchema::add_tags_folder(&conn, data.folder_name.clone(), data.tags.clone()).await;
     create_response(&result, json!({ "status": "ok", "tags": data.tags }))
-}
-
-#[get("/?<folder>")]
-pub async fn get_folders(
-    state_files: &State<StateFiles>,
-    flash: Option<FlashMessage<'_>>,
-    conn: DbConn,
-    folder: &str,
-) -> Template {
-    let flash = flash.map(FlashMessage::into_inner);
-
-    Template::render(
-        "files",
-        Context::get_all_folders(&conn, flash, Some(folder), state_files).await,
-    )
 }
 
 #[derive(Serialize)]
@@ -202,25 +182,3 @@ fn format_search_pattern(pattern: &str) -> String {
     }
 }
 
-#[get("/?<searchby>&<root>")]
-pub async fn retrieve_folders(
-    flash: Option<FlashMessage<'_>>,
-    conn: DbConn,
-    searchby: Option<&str>,
-    root: Option<&str>,
-) -> Template {
-    let flash = flash.map(FlashMessage::into_inner);
-
-    // Default to "_" if parameters are not provided
-    let search_term = searchby.unwrap_or("_");
-    let root_term = root.unwrap_or("_");
-
-    // Format search patterns for both search and root
-    let search_pattern = format_search_pattern(search_term);
-    let root_pattern = format_search_pattern(root_term);
-
-    Template::render(
-        "index",
-        Context::get_folders(&conn, flash, &search_pattern, &root_pattern).await,
-    )
-}
