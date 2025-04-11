@@ -2,12 +2,12 @@ import axios, { AxiosError } from 'axios'
 import DOMPurify from 'dompurify'
 import {
     Folder,
+    JsonConfig,
     JsonFilePhoto,
     JsonResponse,
     JsonResponseCancelTask,
     JsonResponseIndex,
-    Photo,
-    Root,
+    JsonRootResponse,
 } from '../types/gallery'
 
 // Sanitization utilities
@@ -141,10 +141,24 @@ apiClient.interceptors.response.use(
 
 // API methods
 export const api = {
+    config: {
+        getConfig: async (): Promise<JsonConfig> => {
+            const response = await apiClient.get('/config')
+            return response.data
+        },
+        updateConfig: async (params: JsonConfig): Promise<void> => {
+            const response = await apiClient.post('/config', params)
+            if (response.data.status === 'error') {
+                throw new Error(
+                    'Error while updating the config: ' + response.data.error
+                )
+            }
+        },
+    },
     // Folder-related API calls
     folders: {
         // Get all roots folders
-        getRoots: async (): Promise<Root[]> => {
+        getRoots: async (): Promise<JsonRootResponse[]> => {
             const response = await apiClient.get('/folders/roots')
             return response.data
         },
@@ -169,7 +183,12 @@ export const api = {
             })
 
             const response = await apiClient.get('/folders/json', { params })
-            return response.data
+            return await Promise.all<Folder[]>(
+                response.data.map(async (folder: Folder) => {
+                    folder.tags = await api.tags.getAll(folder.title)
+                    return folder
+                })
+            )
         },
 
         // Get folder by name
@@ -185,7 +204,7 @@ export const api = {
         delete: async (folderName: string): Promise<void> => {
             const sanitizedName = sanitize.folderName(folderName)
             const response = await apiClient.post(`/folders/delete`, {
-                data: sanitizedName,
+                folder_name: sanitizedName,
             })
             if (response.data) {
                 if (response.data.rows !== 1) {
@@ -230,19 +249,31 @@ export const api = {
             return response.data
         },
 
-        // Get photos by tag
-        getRandomByTag: async (tag: string): Promise<Photo[]> => {
-            const sanitizedTag = sanitize.string(tag)
-            const response = await apiClient.get(
-                `/files?tag=${encodeURIComponent(sanitizedTag)}`
-            )
+        // Get random photos by tag
+        getRandomByTag: async (
+            tag: string,
+            size: number
+        ): Promise<JsonResponse<JsonFilePhoto[]>> => {
+            let params = {}
+            if (tag) {
+                const sanitizedTag = sanitize.folderName(tag)
+                params = {
+                    tag: sanitizedTag,
+                    size: size,
+                }
+            }
+
+            const response = await apiClient.get('/files/random/json', {
+                params,
+            })
+
             return response.data
         },
 
         // Get random photo from album
         getRandomByFolder: async (
             folderName: string,
-            size: number = 200
+            size: number
         ): Promise<JsonResponse<JsonFilePhoto[]>> => {
             const sanitizedName = sanitize.folderName(folderName)
 

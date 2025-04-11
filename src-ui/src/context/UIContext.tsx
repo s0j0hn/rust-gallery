@@ -1,6 +1,7 @@
 import React, { createContext, ReactNode, useCallback, useState } from 'react'
 import { Folder, JsonFilePhoto } from '../types/gallery'
 import { api } from '../services/api'
+import { useConfig } from './ConfigContext'
 
 interface UIContextType {
     tagDialogOpen: boolean
@@ -27,6 +28,7 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [selectedFolder, setSelectedFolder] = useState<Folder | null>(null)
     const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null)
     const [randomPhotos, setRandomPhotos] = useState<JsonFilePhoto[]>([])
+    const { config, refreshConfig } = useConfig()
 
     // Tag dialog functions
     const openTagDialog = useCallback(async (folder: Folder) => {
@@ -55,17 +57,24 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     }, [])
 
     // Random photo functions
-    const openRandomPhotos = useCallback(async (folderTitle: string) => {
-        try {
-            const photos = await api.photos.getRandomByFolder(folderTitle)
-            if (photos.items.length > 0) {
-                setRandomPhotos(photos.items)
-                setRandomPhotoDialogOpen(true)
+    const openRandomPhotos = useCallback(
+        async (folderTitle: string) => {
+            try {
+                await refreshConfig()
+                const photos = await api.photos.getRandomByFolder(
+                    folderTitle,
+                    config.photo_per_random
+                )
+                if (photos.items.length > 0) {
+                    setRandomPhotos(photos.items)
+                    setRandomPhotoDialogOpen(true)
+                }
+            } catch (error) {
+                console.error('Error fetching random photo:', error)
             }
-        } catch (error) {
-            console.error('Error fetching random photo:', error)
-        }
-    }, [])
+        },
+        [config]
+    )
 
     // Add close function for random photos
     const closeRandomPhotos = useCallback(() => {

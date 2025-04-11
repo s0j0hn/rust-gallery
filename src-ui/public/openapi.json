@@ -11,11 +11,33 @@
       "description": "Main server"
     },
     {
-      "url": "http://localhost:3000",
-      "description": "Local react server"
+      "url": "http://localhost:8000",
+      "description": "Local rust server"
     }
   ],
   "paths": {
+    "/config": {
+      "get": {
+        "summary": "Get config information",
+        "description": "Returns a application configuration",
+        "operationId": "getConfig",
+        "responses": {
+          "200": {
+            "description": "Config data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Config"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "config"
+        ]
+      }
+    },
     "/folders/roots": {
       "get": {
         "summary": "Get all root folders",
@@ -35,11 +57,17 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "root"
+        ]
       }
     },
     "/folders/json": {
       "get": {
+        "tags": [
+          "folder"
+        ],
         "summary": "Get all folders",
         "description": "Returns a paginated list of all folders, with optional filtering by root folder and search term",
         "operationId": "getAllFolders",
@@ -98,6 +126,9 @@
     },
     "/folders/json/name/{folderName}": {
       "get": {
+        "tags": [
+          "folder"
+        ],
         "summary": "Get folder by name",
         "description": "Returns details of a specific folder by its name",
         "operationId": "getFolderByName",
@@ -131,6 +162,9 @@
     },
     "/folders/delete": {
       "post": {
+        "tags": [
+          "folder"
+        ],
         "summary": "Delete a folder",
         "description": "Deletes a folder and returns the number of affected rows",
         "operationId": "deleteFolder",
@@ -146,7 +180,9 @@
                     "description": "Name of the folder to delete"
                   }
                 },
-                "required": ["data"]
+                "required": [
+                  "data"
+                ]
               }
             }
           }
@@ -173,6 +209,9 @@
     },
     "/tags/assign/folder": {
       "post": {
+        "tags": [
+          "tag"
+        ],
         "summary": "Update folder tags",
         "description": "Updates the tags associated with a folder",
         "operationId": "updateFolderTags",
@@ -195,7 +234,10 @@
                     "description": "Name of the folder"
                   }
                 },
-                "required": ["tags", "folder_name"]
+                "required": [
+                  "tags",
+                  "folder_name"
+                ]
               }
             }
           }
@@ -224,6 +266,9 @@
     },
     "/files/json": {
       "get": {
+        "tags": [
+          "files"
+        ],
         "summary": "Get photos by folder",
         "description": "Returns a paginated list of photos within a specified folder",
         "operationId": "getPhotosByFolder",
@@ -272,15 +317,41 @@
     },
     "/files/random/json": {
       "get": {
+        "tags": [
+          "files"
+        ],
         "summary": "Get random photos from a folder",
         "description": "Returns a random selection of photos from a specified folder",
         "operationId": "getRandomPhotos",
         "parameters": [
           {
+            "name": "root",
+            "in": "query",
+            "description": "Root name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "extension",
+            "in": "query",
+            "description": "Extension file",
+            "schema": {
+              "enum": ["JPG", "PNG", "GIF", "WEBP"]
+            }
+          },
+          {
             "name": "folder",
             "in": "query",
             "description": "Folder name",
-            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "description": "Tag name",
             "schema": {
               "type": "string"
             }
@@ -292,6 +363,33 @@
             "schema": {
               "type": "integer",
               "default": 200
+            }
+          },
+          {
+            "name": "equal",
+            "in": "query",
+            "description": "Per folder size enabled",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "name": "equal_size",
+            "in": "query",
+            "description": "Per folder size photos",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Random Size",
+            "schema": {
+              "type": "integer",
+              "default": 100
             }
           }
         ],
@@ -311,6 +409,9 @@
     },
     "/tags/assign": {
       "post": {
+        "tags": [
+          "tag"
+        ],
         "summary": "Update photo tags",
         "description": "Updates the tags associated with a specific photo",
         "operationId": "updatePhotoTags",
@@ -333,7 +434,10 @@
                     "description": "Hash of the image"
                   }
                 },
-                "required": ["tags", "image_hash"]
+                "required": [
+                  "tags",
+                  "image_hash"
+                ]
               }
             }
           }
@@ -362,6 +466,9 @@
     },
     "/tags": {
       "get": {
+        "tags": [
+          "tag"
+        ],
         "summary": "Get all tags",
         "description": "Returns a list of all tags, optionally filtered by folder",
         "operationId": "getAllTags",
@@ -394,6 +501,9 @@
     },
     "/files/task/index": {
       "get": {
+        "tags": [
+          "task"
+        ],
         "summary": "Trigger all photos indexation",
         "description": "Initiates the indexing process for all photos, with an option to force reindexing",
         "operationId": "indexPhotos",
@@ -429,6 +539,9 @@
     },
     "/files/task/cancel": {
       "get": {
+        "tags": [
+          "task"
+        ],
         "summary": "Cancel the indexation task",
         "description": "Cancels any ongoing photo indexation task",
         "operationId": "cancelIndexTask",
@@ -463,6 +576,24 @@
   },
   "components": {
     "schemas": {
+      "Config": {
+        "type": "object",
+        "description": "Represents a config data of the server",
+        "properties": {
+          "random_equal_folders": {
+            "type": "integer",
+            "description": "Number of equal photo per folder"
+          },
+          "photo_per_random": {
+            "type": "integer",
+            "description": "Number of photos per random session"
+          },
+          "folders_per_page": {
+            "type": "integer",
+            "description": "Number of folders per page"
+          }
+        }
+      },
       "Root": {
         "type": "object",
         "description": "Represents a root level folder in the gallery",

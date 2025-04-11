@@ -7,7 +7,14 @@ export interface Folder {
     root: string
 }
 
-export interface Root {
+export interface JsonConfig {
+    random_equal_folders: number
+    photo_per_random: number
+    folders_per_page: number
+    equal_enabled: number
+}
+
+export interface JsonRootResponse {
     photo_count: number
     root: string
 }

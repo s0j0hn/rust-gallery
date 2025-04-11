@@ -31,6 +31,7 @@ const RandomPhotoView: FC<RandomPhotoProps> = ({ photos }) => {
                 bgOpacity: 1,
                 preload: [2, 4],
                 loop: false,
+                zoom: false,
                 pinchToClose: false,
                 closeOnVerticalDrag: false,
             }}

@@ -3,21 +3,23 @@ import React, {
     ReactNode,
     useCallback,
     useEffect,
-    useState,
     useRef,
+    useState,
 } from 'react'
-import { Folder, Root } from '../types/gallery'
+import { Folder, JsonRootResponse } from '../types/gallery'
 import { api } from '../services/api'
 import { Location, useLocation, useNavigate } from 'react-router-dom'
+import { useConfig } from './ConfigContext'
 
 interface FolderContextType {
     folders: Folder[]
-    roots: Root[]
+    roots: JsonRootResponse[]
     tags: string[]
     filteredFolders: Folder[]
     loading: boolean
     searchQuery: string
     selectedRoot: string | null
+    recentSearches: any
     setSearchQuery: (query: string) => void
     setSelectedRoot: (rootName: string) => void
     refreshFolders: () => Promise<void>
@@ -59,7 +61,7 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
     children,
 }) => {
     const [folders, setFolders] = useState<Folder[]>([])
-    const [roots, setFolderRoots] = useState<Root[]>([])
+    const [roots, setFolderRoots] = useState<JsonRootResponse[]>([])
     const [tags, setTags] = useState<string[]>([])
     const [filteredFolders, setFilteredFolders] = useState<Folder[]>([])
     const [loading, setLoading] = useState<boolean>(true)
@@ -69,9 +71,23 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
     const [page, setPage] = useState<number>(1)
     const [hasMore, setHasMore] = useState<boolean>(true)
     const checkIntervalRef = useRef<NodeJS.Timeout | null>(null)
-    const FOLDERS_PER_PAGE = 8
+    const [recentSearches, setRecentSearches] = useState<string[]>([])
+
     const location = useLocation()
     const navigate = useNavigate()
+    const { config, refreshConfig } = useConfig()
+
+    // Add this effect to load recent searches on mount
+    useEffect(() => {
+        try {
+            const savedSearches = localStorage.getItem('recentSearches')
+            if (savedSearches) {
+                setRecentSearches(JSON.parse(savedSearches))
+            }
+        } catch (err) {
+            console.error('Failed to load recent searches', err)
+        }
+    }, [])
 
     // Update URL with search parameters
     const updateSearchParams = useCallback(
@@ -81,6 +97,30 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
             navigate(newUrl, { replace: true })
         },
         [location, navigate]
+    )
+
+    // Modify your setSearchQuery handler
+    const handleSetSearchQuery = useCallback(
+        (query: string) => {
+            // Original logic
+            setSearchQuery(query)
+            updateSearchParams(query, selectedRoot)
+
+            // Add to recent searches if not empty
+            if (query.trim()) {
+                const newRecentSearches = [
+                    query,
+                    ...recentSearches.filter((search) => search !== query),
+                ].slice(0, 5) // Keep only the 5 most recent
+
+                setRecentSearches(newRecentSearches)
+                localStorage.setItem(
+                    'recentSearches',
+                    JSON.stringify(newRecentSearches)
+                )
+            }
+        },
+        [selectedRoot, updateSearchParams, recentSearches]
     )
 
     // Function to check indexation status
@@ -117,13 +157,13 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
                 // Here you'll need to modify your API call to include search parameters
                 const data = await api.folders.getAll(
                     currentPage,
-                    FOLDERS_PER_PAGE,
+                    config.folders_per_page,
                     root || '',
                     query
                 )
 
                 // Check if we have more folders to load
-                const hasMoreFolders = data.length === FOLDERS_PER_PAGE
+                const hasMoreFolders = data.length === config.folders_per_page
                 setHasMore(hasMoreFolders)
 
                 return data
@@ -139,11 +179,12 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
 
     // Refresh folders (used for initial load or reset)
     const refreshFolders = useCallback(async () => {
+        await refreshConfig()
         setPage(1)
         const newFolders = await fetchFolders(1, selectedRoot, searchQuery)
         setFolders(newFolders)
         setFilteredFolders(newFolders)
-    }, [fetchFolders, selectedRoot, searchQuery])
+    }, [fetchFolders, selectedRoot, searchQuery, refreshConfig])
 
     // Load more folders function
     const loadMoreFolders = useCallback(async () => {
@@ -157,8 +198,30 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
         )
 
         if (newFolders.length > 0) {
-            setFolders((prev) => [...prev, ...newFolders])
-            setFilteredFolders((prev) => [...prev, ...newFolders])
+            setFolders((prev) => {
+                // Get all existing folder titles for duplicate checking
+                const existingTitles = new Set(
+                    prev.map((folder) => folder.title)
+                )
+
+                // Only add new folders that don't already exist
+                const uniqueNewFolders = newFolders.filter(
+                    (folder) => !existingTitles.has(folder.title)
+                )
+
+                return [...prev, ...uniqueNewFolders]
+            })
+
+            setFilteredFolders((prev) => {
+                const existingTitles = new Set(
+                    prev.map((folder) => folder.title)
+                )
+                const uniqueNewFolders = newFolders.filter(
+                    (folder) => !existingTitles.has(folder.title)
+                )
+                return [...prev, ...uniqueNewFolders]
+            })
+
             setPage(nextPage)
         }
     }, [fetchFolders, hasMore, loading, page, selectedRoot, searchQuery])
@@ -194,10 +257,7 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
         }
 
         fetchRoots()
-    }, [])
 
-    // Fetch tags
-    useEffect(() => {
         const fetchTags = async () => {
             try {
                 const data = await api.tags.getAll()
@@ -248,6 +308,7 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
             setFilteredFolders((prevFolders) =>
                 prevFolders.filter((folder) => folder.title !== folderTitle)
             )
+            refreshFolders()
         } catch (err) {
             console.error(`Failed to delete folder ${folderTitle}:`, err)
             throw err
@@ -303,15 +364,6 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
         }
     }, [refreshFolders])
 
-    // Custom setSearchQuery that updates URL
-    const handleSetSearchQuery = useCallback(
-        (query: string) => {
-            setSearchQuery(query)
-            updateSearchParams(query, selectedRoot)
-        },
-        [selectedRoot, updateSearchParams]
-    )
-
     // Custom setSelectedRoot that updates URL
     const handleSetSelectedRoot = useCallback(
         (root: string) => {
@@ -331,6 +383,7 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
                 loading,
                 searchQuery,
                 selectedRoot,
+                recentSearches,
                 setSearchQuery: handleSetSearchQuery,
                 setSelectedRoot: handleSetSelectedRoot,
                 refreshFolders,

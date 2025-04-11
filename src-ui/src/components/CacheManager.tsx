@@ -1,5 +1,3 @@
-// src/components/CacheManager.tsx
-
 import React, { FC, useEffect, useState } from 'react'
 import useImageCache from '../hooks/useImageCache'
 

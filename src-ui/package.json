@@ -1,6 +1,6 @@
 {
     "name": "photo-album-portal",
-    "version": "0.3.0",
+    "version": "0.5.0",
     "private": true,
     "dependencies": {
         "@testing-library/dom": "^10.4.0",
@@ -8,33 +8,43 @@
         "@testing-library/react": "^16.2.0",
         "@testing-library/user-event": "^14.6.1",
         "@types/jest": "^29.5.14",
-        "@types/node": "^22.13.9",
-        "@types/react": "^19.0.10",
+        "@types/lodash": "^4.17.16",
+        "@types/node": "^22.13.14",
+        "@types/react": "^19.0.12",
         "@types/react-dom": "^19.0.4",
-        "axios": "^1.8.3",
+        "axios": "^1.8.4",
         "dompurify": "^3.2.4",
+        "lodash": "^4.17.21",
         "lucide-react": "^0.481.0",
-        "react": "^19.0.0",
-        "react-dom": "^19.0.0",
-        "react-photoswipe-gallery": "^3.1.0",
-        "react-router-dom": "^7.3.0",
+        "react": "^19.1.0",
+        "react-dom": "^19.1.0",
+        "react-photoswipe-gallery": "^3.1.1",
+        "react-router-dom": "^7.4.1",
         "react-scripts": "^5.0.1",
-        "swagger-ui-react": "^5.20.1",
+        "swagger-ui-react": "^5.20.2",
         "typescript": "^5.8.2",
         "web-vitals": "^4.2.4"
     },
     "devDependencies": {
+        "@craco/craco": "^7.1.0",
+        "@craco/types": "^7.1.0",
         "@types/swagger-ui-react": "^5.18.0",
-        "autoprefixer": "^10.4.13",
-        "postcss": "^8.4.21",
+        "autoprefixer": "^10.4.21",
+        "compression-webpack-plugin": "^11.1.0",
+        "postcss": "^8.5.3",
         "prettier": "3.5.3",
-        "tailwindcss": "^3.2.4"
+        "source-map-explorer": "^2.5.3",
+        "tailwindcss": "^3.4.17",
+        "webpack-bundle-analyzer": "^4.10.2"
     },
     "scripts": {
-        "start": "react-scripts start --inspect-brk test --runInBand --no-cache",
-        "build": "CI=false BUILD_PATH='../static' react-scripts build",
-        "test": "react-scripts test",
-        "eject": "react-scripts eject"
+        "start": "react-scripts start --verbose",
+        "build": "CI=false BUILD_PATH='../static' craco build",
+        "test": "craco test",
+        "eject": "react-scripts eject",
+        "analyze": "source-map-explorer '../static/static/js/*.js'",
+        "analyze:bundle": "ANALYZE=true pnpm run build",
+        "analyze:full": "GENERATE_SOURCEMAP=true pnpm run build && pnpm run analyze"
     },
     "eslintConfig": {
         "extends": [

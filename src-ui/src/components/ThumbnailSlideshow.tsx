@@ -1,10 +1,9 @@
-// src/components/ThumbnailSlideshow.tsx
-import React, { FC, useEffect, useState, useCallback } from 'react'
+import React, { FC, useCallback, useEffect, useState } from 'react'
 import {
-    getCachedImageUrl,
     cacheImageUrl,
-    preloadImage,
     generateThumbnailUrl,
+    getCachedImageUrl,
+    preloadImage,
 } from '../utils/imageCacheUtils'
 
 interface ThumbnailSlideshowProps {
@@ -56,7 +55,7 @@ const ThumbnailSlideshow: FC<ThumbnailSlideshowProps> = ({
     // Reset loaded state when thumbnails change
     useEffect(() => {
         setLoadedImages({})
-    }, [thumbnails])
+    }, [])
 
     // Set up interval for changing thumbnails when not being touched
     useEffect(() => {

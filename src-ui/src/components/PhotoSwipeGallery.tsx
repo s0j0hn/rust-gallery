@@ -5,7 +5,6 @@ import { JsonFilePhoto } from '../types/gallery'
 
 interface PhotoSwipeGalleryProps {
     images: JsonFilePhoto[]
-    className?: string
     onClick?: (index: number) => void
 }
 
@@ -95,23 +94,21 @@ export const GalleryContent: FC<{
     )
 }
 
-const PhotoSwipeGallery: FC<PhotoSwipeGalleryProps> = ({
-    images,
-    className = '',
-}) => {
+const PhotoSwipeGallery: FC<PhotoSwipeGalleryProps> = ({ images }) => {
     return (
         <Gallery
             withCaption
             withDownloadButton
             options={{
                 bgOpacity: 1,
+                zoom: false,
                 preload: [2, 4],
                 loop: false,
                 pinchToClose: false,
                 closeOnVerticalDrag: false,
             }}
         >
-            <div className={className}>
+            <div>
                 <GalleryContent images={images} hidden={false} />
             </div>
         </Gallery>

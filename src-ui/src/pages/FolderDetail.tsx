@@ -19,7 +19,6 @@ const FolderDetail: React.FC = () => {
     const { folderName } = useParams<{ folderName: string }>()
     const navigate = useNavigate()
     const isMobile = useMobile()
-    const { isIndexing, startIndexation } = useFolders()
     const perPage = 200 // Reduced from 200 to improve initial load time
 
     // Load more photos function for infinite scroll
@@ -70,7 +69,6 @@ const FolderDetail: React.FC = () => {
             .getByName(folderName)
             .then(async (folder) => {
                 if (folder) {
-                    folder.tags = await api.tags.getAll(folder.title)
                     setFolder(folder)
                 }
             })
@@ -170,20 +168,20 @@ const FolderDetail: React.FC = () => {
                 </div>
             </div>
 
-            {isMobile && (
-                <MobileNavigation
-                    onHomeClick={handleBack}
-                    onRootClick={() => {
-                        navigate('/', { state: { showRoots: true } })
-                    }}
-                    onTagsClick={() => {
-                        navigate('/')
-                    }}
-                    onIndexClick={startIndexation}
-                    onApiDocsClick={handleApiDocsClick}
-                    isIndexing={isIndexing}
-                />
-            )}
+            {/*{isMobile && (*/}
+            {/*    <MobileNavigation*/}
+            {/*        onHomeClick={handleBack}*/}
+            {/*        onRootClick={() => {*/}
+            {/*            navigate('/', { state: { showRoots: true } })*/}
+            {/*        }}*/}
+            {/*        onTagsClick={() => {*/}
+            {/*            navigate('/')*/}
+            {/*        }}*/}
+            {/*        onIndexClick={startIndexation}*/}
+            {/*        onApiDocsClick={handleApiDocsClick}*/}
+            {/*        isIndexing={isIndexing}*/}
+            {/*    />*/}
+            {/*)}*/}
         </div>
     )
 }

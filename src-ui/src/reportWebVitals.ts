@@ -1,17 +1,12 @@
-import { type ReportCallback } from 'web-vitals'
+import { onCLS, onFCP, onFID, onLCP, onTTFB } from 'web-vitals'
 
-const reportWebVitals = (onPerfEntry?: ReportCallback) => {
-    if (onPerfEntry && onPerfEntry instanceof Function) {
-        import('web-vitals').then(
-            ({ onCLS, onFID, onFCP, onLCP, onTTFB, onINP }) => {
-                onCLS(onPerfEntry)
-                onFID(onPerfEntry)
-                onFCP(onPerfEntry)
-                onLCP(onPerfEntry)
-                onTTFB(onPerfEntry)
-                onINP(onPerfEntry) // New metric in v4
-            }
-        )
+function reportWebVitals(onPerfEntry: any) {
+    if (onPerfEntry && typeof onPerfEntry === 'function') {
+        onCLS(onPerfEntry) // Measures visual stability
+        onFID(onPerfEntry) // Measures interactivity
+        onLCP(onPerfEntry) // Measures loading performance
+        onFCP(onPerfEntry) // Measures time to first content display
+        onTTFB(onPerfEntry) // Measures server response time
     }
 }
 

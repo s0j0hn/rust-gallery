@@ -1,15 +1,14 @@
 CREATE TABLE files (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    path VARCHAR NOT NULL,
-    hash VARCHAR NOT NULL constraint files_pk unique,
-    extention VARCHAR NOT NULL,
-    filename VARCHAR NOT NULL,
-    folder_name VARCHAR NOT NULL,
-    width VARCHAR NOT NULL,
-    height VARCHAR NOT NULL,
-    tags VARCHAR default '[]',
-    root VARCHAR NOT NULL
+                       id INT AUTO_INCREMENT PRIMARY KEY,
+                       path VARCHAR(255) NOT NULL,
+                       hash VARCHAR(255) NOT NULL UNIQUE,
+                       extention VARCHAR(50) NOT NULL,
+                       filename VARCHAR(255) NOT NULL,
+                       folder_name VARCHAR(255) NOT NULL,
+                       width VARCHAR(50) NOT NULL,
+                       height VARCHAR(50) NOT NULL,
+                       tags VARCHAR(255) DEFAULT '[]',
+                       root VARCHAR(255) NOT NULL
 );
 
-create index files_hash_index
-    on files (hash desc);
+CREATE INDEX files_hash_index ON files (hash DESC);

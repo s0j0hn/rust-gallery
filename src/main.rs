@@ -2,6 +2,12 @@
 //!
 //! This application provides a web interface for browsing, tagging, and managing images
 //! using Rocket as the web framework and Diesel for database operations.
+//!
+//! Architecture:
+//! - Web server: Rocket framework
+//! - Database: SQLite with Diesel ORM
+//! - Image caching: Moka in-memory cache
+//! - Background tasks: ThreadManager for non-blocking operations
 
 #[macro_use]
 extern crate diesel;
@@ -12,85 +18,46 @@ extern crate rocket_sync_db_pools;
 
 // Core modules
 mod cache_files;
-mod context;
 mod handlers;
 mod models;
 
 #[cfg(test)]
 mod tests;
 
-// Import handlers organized by functionality
-use handlers::{
-    configs::handler::update_config,
-    files::{
-        files_download::{get_thumbnail_folder, retrieve_file},
-        files_index::{get_files_by_extension, get_files_by_tag, index_files},
-        random_files::random,
-        tags::add_tags,
-    },
-    folders::handler::{
-        assign_tag, assign_tag_folder, delete_folder, get_folders, retrieve_folders,
-    },
-    json::random_files_json::{get_all_json, random_json},
-    tasks::task_manager::{ThreadManager, cancel_task},
-};
-
-// Import models
-use models::file::repository::{FileSchema, FolderInfo};
-
-// Application state and dependencies
-use crate::handlers::files::files_download::get_thumbnail_photo;
-use crate::handlers::files::tags::get_all_tags;
-use crate::handlers::folders::handler::{get_folder_by_name, get_folders_json, get_roots_json};
-use cache_files::{ImageCache, StateFiles};
 use moka::sync::Cache;
+// Import dependencies
 use rocket::{
     Build, Rocket,
     fairing::AdHoc,
     fs::{FileServer, Options, relative},
-    serde::{Deserialize, Serialize},
+    serde::Deserialize,
 };
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions, Error};
-use rocket_dyn_templates::Template;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use crate::handlers::configs::handler::get_config;
+use crate::handlers::{
+    configs::handler::update_config,
+    files::handler::{
+        get_all_files_json, get_thumbnail_folder, get_thumbnail_photo, random_json, retrieve_file,
+    },
+    folders::handler::{
+        assign_tag, assign_tag_folder, delete_folder, get_folder_by_name, get_folders_json,
+        get_roots_json,
+    },
+    tags::handler::get_all_tags,
+    tasks::handler::{ThreadManager, cancel_task, index_files},
+};
+// Application-specific imports
+use cache_files::{ImageCache, StateFiles};
+
+/// Database connection pool for Mysql
+///
+/// This connection pool is managed by Rocket and injected
+/// into route handlers that need database access.
 /// Database connection pool for SQLite
 #[database("sqlite_database")]
 pub struct DbConn(diesel::SqliteConnection);
-
-/// Context struct for rendering templates
-#[derive(Serialize)]
-#[serde(crate = "rocket::serde")]
-struct Context {
-    flash: Option<(String, String)>,
-    files: Vec<FileSchema>,
-    folders: Vec<FolderInfo>,
-    count_files: i64,
-    roots: Vec<String>,
-    tags: Vec<String>,
-}
-
-/// Run database migrations on application startup
-async fn run_migrations(rocket: Rocket<Build>) -> Rocket<Build> {
-    use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
-
-    const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
-
-    let conn = DbConn::get_one(&rocket)
-        .await
-        .expect("Failed to get database connection for migrations");
-
-    conn.run(|c| {
-        // Run pending migrations and capture the result for better error reporting
-        match c.run_pending_migrations(MIGRATIONS) {
-            Ok(_) => info!("Successfully ran database migrations"),
-            Err(e) => error!("Failed to run database migrations: {}", e),
-        }
-    })
-    .await;
-
-    rocket
-}
 
 /// Application configuration from Rocket.toml
 #[derive(Debug, Deserialize)]
@@ -100,8 +67,35 @@ struct AppConfig {
     images_dirs: Vec<String>,
 }
 
-// Setup CORS
-fn make_cors() -> Result<rocket_cors::Cors, Error> {
+/// Runs database migrations on application startup to ensure
+/// the database schema is up-to-date.
+///
+/// This function executes as part of Rocket's initialization
+/// process and runs all pending migrations defined in the
+/// "migrations" directory.
+async fn run_migrations(rocket: Rocket<Build>) -> Rocket<Build> {
+    use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
+
+    const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
+
+    let conn = DbConn::get_one(&rocket)
+        .await
+        .expect("Failed to get database connection for migrations");
+
+    conn.run(|c| match c.run_pending_migrations(MIGRATIONS) {
+        Ok(_) => info!("Successfully ran database migrations"),
+        Err(e) => error!("Failed to run database migrations: {}", e),
+    })
+    .await;
+
+    rocket
+}
+
+/// Configures Cross-Origin Resource Sharing (CORS) for the application
+///
+/// Enables cross-origin requests to allow frontend applications
+/// hosted on different domains to interact with the API.
+fn configure_cors() -> Result<rocket_cors::Cors, Error> {
     let allowed_origins = AllowedOrigins::all();
 
     CorsOptions {
@@ -118,15 +112,22 @@ fn make_cors() -> Result<rocket_cors::Cors, Error> {
 }
 
 /// Main application entrypoint
+///
+/// Sets up the Rocket web server with:
+/// - Database connection pool
+/// - Image caching system
+/// - Background task manager
+/// - API routes
+/// - Static file serving
 #[launch]
 fn rocket() -> _ {
     // Configure static file serving with options
-    let options = Options::Index | Options::DotFiles;
+    let static_files_options = Options::Index | Options::DotFiles;
 
-    // CORS
-    let cors = make_cors().expect("CORS configuration failed");
+    // Set up CORS
+    let cors = configure_cors().expect("CORS configuration failed");
 
-    // Set up image cache with 4-day TTL
+    // Set up image cache with 4-day TTL (345600 seconds)
     let cache: ImageCache = Arc::new(
         Cache::builder()
             .time_to_live(Duration::from_secs(345600))
@@ -137,23 +138,24 @@ fn rocket() -> _ {
     let thread_manager = ThreadManager::new();
 
     rocket::build()
-        // Application state
+        // Register application state
         .manage(StateFiles {
             files: HashMap::new().into(),
         })
         .manage(cache)
         .manage(thread_manager)
-        // Configuration
+        // Configure application
         .attach(cors)
         .attach(AdHoc::config::<AppConfig>())
         .attach(DbConn::fairing())
-        .attach(Template::fairing())
         .attach(AdHoc::on_ignite("Run Migrations", run_migrations))
-        // Static files
-        .mount("/", FileServer::new(relative!("static"), options))
-        // API routes, organized by functionality
-        .mount("/configs", routes![update_config])
-        //.mount("/beta", routes![beta_index])
+        // Mount static file server
+        .mount(
+            "/",
+            FileServer::new(relative!("static"), static_files_options),
+        )
+        // Mount API routes, organized by functionality
+        .mount("/config", routes![update_config, get_config])
         .mount(
             "/tags",
             routes![assign_tag, assign_tag_folder, get_all_tags],
@@ -161,16 +163,11 @@ fn rocket() -> _ {
         .mount(
             "/files",
             routes![
-                add_tags,
-                get_folders,
                 index_files,
                 cancel_task,
                 retrieve_file,
-                random,
                 random_json,
-                get_all_json,
-                get_files_by_tag,
-                get_files_by_extension,
+                get_all_files_json,
                 get_thumbnail_photo
             ],
         )
@@ -180,7 +177,6 @@ fn rocket() -> _ {
                 get_folders_json,
                 get_roots_json,
                 get_folder_by_name,
-                retrieve_folders,
                 get_thumbnail_folder,
                 delete_folder
             ],

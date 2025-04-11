@@ -1,7 +1,7 @@
 // src/components/MobileNavigation.tsx
 import React, { FC, useState } from 'react'
 import {
-    Database, // Add this new icon
+    Database,
     FileText,
     FolderOpen,
     Home,

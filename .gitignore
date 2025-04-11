@@ -3,6 +3,8 @@ files/
 node_modules
 dist
 .idea/
-db
+db/
+.env
 
 !/src/handlers/files/
+static/static/

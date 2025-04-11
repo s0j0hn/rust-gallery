@@ -2,6 +2,8 @@ import React, { FC, MouseEvent } from 'react'
 import { Camera, Play, Tag, Trash2 } from 'lucide-react'
 import ThumbnailSlideshow from './ThumbnailSlideshow'
 import { Folder } from '../types/gallery'
+import { highlightText } from '../utils/highlight'
+import { useFolders } from '../hooks/useFolders'
 
 interface FolderCardProps {
     folder: Folder
@@ -22,6 +24,7 @@ const FolderCard: FC<FolderCardProps> = ({
 }) => {
     // Detect mobile screen width
     const isMobile = false
+    const { searchQuery } = useFolders()
 
     return (
         <div className="bg-white shadow-md overflow-hidden">
@@ -45,7 +48,9 @@ const FolderCard: FC<FolderCardProps> = ({
             <div className="p-4">
                 <div className="flex justify-between items-start">
                     <h2 className="text-xl font-semibold mb-2">
-                        {folder.title}
+                        {searchQuery
+                            ? highlightText(folder.title, searchQuery)
+                            : folder.title}
                     </h2>
                     <button
                         onClick={(e: MouseEvent<HTMLButtonElement>) => {
