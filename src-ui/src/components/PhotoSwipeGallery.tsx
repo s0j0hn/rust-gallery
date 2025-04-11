@@ -101,6 +101,7 @@ const PhotoSwipeGallery: FC<PhotoSwipeGalleryProps> = ({ images }) => {
             withDownloadButton
             options={{
                 bgOpacity: 1,
+                zoom: false,
                 preload: [2, 4],
                 loop: false,
                 pinchToClose: false,

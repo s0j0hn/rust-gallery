@@ -1,28 +1,28 @@
 {
   "files": {
-    "main.css": "/static/css/main.78b0b29f.css",
-    "main.js": "/static/js/main.7902dbc8.js",
-    "vendor-react.js": "/static/js/vendor-react.78bcbe9e.js",
-    "vendor-ui.js": "/static/js/vendor-ui.61763624.js",
+    "main.css": "/static/css/main.871669a8.css",
+    "main.js": "/static/js/main.6efc7428.js",
+    "vendor-react.js": "/static/js/vendor-react.fea49c12.js",
+    "vendor-ui.js": "/static/js/vendor-ui.9862c79f.js",
     "vendor-utils.css": "/static/css/vendor-utils.bd39b503.css",
-    "vendor-utils.js": "/static/js/vendor-utils.2400157b.js",
-    "vendors.js": "/static/js/vendors.36ff833f.js",
+    "vendor-utils.js": "/static/js/vendor-utils.18ba28a4.js",
+    "vendors.js": "/static/js/vendors.2db70500.js",
     "index.html": "/index.html",
-    "main.78b0b29f.css.map": "/static/css/main.78b0b29f.css.map",
-    "main.7902dbc8.js.map": "/static/js/main.7902dbc8.js.map",
-    "vendor-react.78bcbe9e.js.map": "/static/js/vendor-react.78bcbe9e.js.map",
-    "vendor-ui.61763624.js.map": "/static/js/vendor-ui.61763624.js.map",
+    "main.871669a8.css.map": "/static/css/main.871669a8.css.map",
+    "main.6efc7428.js.map": "/static/js/main.6efc7428.js.map",
+    "vendor-react.fea49c12.js.map": "/static/js/vendor-react.fea49c12.js.map",
+    "vendor-ui.9862c79f.js.map": "/static/js/vendor-ui.9862c79f.js.map",
     "vendor-utils.bd39b503.css.map": "/static/css/vendor-utils.bd39b503.css.map",
-    "vendor-utils.2400157b.js.map": "/static/js/vendor-utils.2400157b.js.map",
-    "vendors.36ff833f.js.map": "/static/js/vendors.36ff833f.js.map"
+    "vendor-utils.18ba28a4.js.map": "/static/js/vendor-utils.18ba28a4.js.map",
+    "vendors.2db70500.js.map": "/static/js/vendors.2db70500.js.map"
   },
   "entrypoints": [
-    "static/js/vendor-react.78bcbe9e.js",
-    "static/js/vendor-ui.61763624.js",
+    "static/js/vendor-react.fea49c12.js",
+    "static/js/vendor-ui.9862c79f.js",
     "static/css/vendor-utils.bd39b503.css",
-    "static/js/vendor-utils.2400157b.js",
-    "static/js/vendors.36ff833f.js",
-    "static/css/main.78b0b29f.css",
-    "static/js/main.7902dbc8.js"
+    "static/js/vendor-utils.18ba28a4.js",
+    "static/js/vendors.2db70500.js",
+    "static/css/main.871669a8.css",
+    "static/js/main.6efc7428.js"
   ]
 }

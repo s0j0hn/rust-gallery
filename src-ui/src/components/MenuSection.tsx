@@ -1,4 +1,3 @@
-// src/components/MenuSection.tsx
 import React, { useEffect, useState } from 'react'
 import {
     Database,
@@ -7,6 +6,7 @@ import {
     Info,
     RefreshCw,
     Search,
+    Settings,
     Tag,
     X,
 } from 'lucide-react'
@@ -14,7 +14,9 @@ import { useNavigate } from 'react-router-dom'
 import { useFolders } from '../hooks/useFolders'
 import { MenuSectionProps } from '../types/gallery'
 import CacheManager from './CacheManager'
-import useMobile from '../hooks/useMobile' // Add this import
+import ConfigManager from './ConfigManager'
+import useMobile from '../hooks/useMobile'
+import SearchBar from './SearchBar'
 
 const MenuSection: React.FC<MenuSectionProps> = ({
     onTagClick,
@@ -25,6 +27,7 @@ const MenuSection: React.FC<MenuSectionProps> = ({
     // Use internal state but synchronize with prop
     const [menuOpen, setMenuOpen] = useState<boolean>(isOpen)
     const [showCacheManager, setShowCacheManager] = useState<boolean>(false)
+    const [showConfigManager, setShowConfigManager] = useState<boolean>(false)
     const isMobile = useMobile() // Add this to detect mobile view
 
     const {
@@ -96,9 +99,13 @@ const MenuSection: React.FC<MenuSectionProps> = ({
         setShowCacheManager(!showCacheManager)
     }
 
+    const toggleConfigManager = () => {
+        setShowConfigManager(!showConfigManager)
+    }
+
     return (
         <div
-            className="mb-6 menu-section"
+            className="mb-16 menu-section"
             data-open={menuOpen ? 'true' : 'false'}
         >
             {/* Updated layout for mobile responsiveness */}
@@ -159,7 +166,7 @@ const MenuSection: React.FC<MenuSectionProps> = ({
                         API Docs
                     </button>
 
-                    {/* New Cache Manager Button */}
+                    {/* Cache Manager Button */}
                     <button
                         onClick={toggleCacheManager}
                         className="px-4 py-2 bg-teal-500 text-white rounded hover:bg-teal-600 transition flex items-center"
@@ -167,36 +174,31 @@ const MenuSection: React.FC<MenuSectionProps> = ({
                         <Database size={16} className="mr-2" />
                         Manage Cache
                     </button>
+
+                    {/* New Config Manager Button */}
+                    <button
+                        onClick={toggleConfigManager}
+                        className="px-4 py-2 bg-amber-500 text-white rounded hover:bg-amber-600 transition flex items-center"
+                    >
+                        <Settings size={16} className="mr-2" />
+                        Settings
+                    </button>
                 </div>
 
                 {/* Make search bar responsive */}
                 <div
-                    className={`relative ${isMobile ? 'w-full' : 'w-full max-w-md ml-4'}`}
+                    className={`${isMobile ? 'w-full' : 'w-full max-w-md ml-4'}`}
                 >
-                    <Search
-                        size={16}
-                        className="absolute left-3 top-3 text-gray-400"
-                    />
-                    <input
-                        type="text"
+                    <SearchBar
                         value={searchQuery || ''}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={setSearchQuery}
                         placeholder="Search folders..."
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded"
                     />
-                    {searchQuery && (
-                        <button
-                            onClick={() => setSearchQuery('')}
-                            className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
-                        >
-                            <X size={16} />
-                        </button>
-                    )}
                 </div>
             </div>
 
             {menuOpen && (
-                <div className="bg-white p-4 rounded-lg shadow-md mb-6 transition-all">
+                <div className="bg-white p-4 rounded-lg shadow-md mt-12 transition-all">
                     <div
                         className={`grid grid-cols-1 ${isMobile ? '' : 'md:grid-cols-3'} gap-4`}
                     >
@@ -295,6 +297,11 @@ const MenuSection: React.FC<MenuSectionProps> = ({
             {/* Cache Manager Modal */}
             {showCacheManager && (
                 <CacheManager onClose={() => setShowCacheManager(false)} />
+            )}
+
+            {/* Config Manager Modal */}
+            {showConfigManager && (
+                <ConfigManager onClose={() => setShowConfigManager(false)} />
             )}
         </div>
     )

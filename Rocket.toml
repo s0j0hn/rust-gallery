@@ -27,3 +27,5 @@ mercy = 5
 
 [default.databases.sqlite_database]
 url = "db/db.sqlite"
+pool_size = 20
+timeout = 60

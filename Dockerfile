@@ -4,7 +4,11 @@ FROM rust:1-slim-bookworm AS build
 ARG pkg=rusty-images
 
 WORKDIR /build
-RUN rustup default nightly-2025-02-17 # Replace with your local version (check with: rustc --version)
+RUN rustup default nightly
+
+# Install SQLite development libraries
+RUN apt-get update && apt-get install -y libsqlite3-dev
+
 COPY . .
 
 RUN --mount=type=cache,target=/build/target \
@@ -19,6 +23,11 @@ RUN --mount=type=cache,target=/build/target \
 FROM debian:stable-slim
 
 WORKDIR /build
+
+# Install runtime library for SQLite
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libsqlite3-0 ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 ## copy the main binary
 COPY --from=build /build/main ./

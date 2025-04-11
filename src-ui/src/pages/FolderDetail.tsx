@@ -69,7 +69,6 @@ const FolderDetail: React.FC = () => {
             .getByName(folderName)
             .then(async (folder) => {
                 if (folder) {
-                    folder.tags = await api.tags.getAll(folder.title)
                     setFolder(folder)
                 }
             })

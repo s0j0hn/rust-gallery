@@ -1,11 +1,14 @@
+use crate::handlers::files::utils::walk_directory;
+use crate::{AppConfig, DbConn};
 use rocket::futures::lock::Mutex;
-use rocket::serde::json::Json;
 use rocket::serde::Serialize;
+use rocket::serde::json::Json;
 use rocket::tokio::task::JoinHandle;
-use rocket::{tokio, State};
+use rocket::{State, tokio};
 use std::future::Future;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Manages background task execution and cancellation
 pub struct ThreadManager {
@@ -98,4 +101,89 @@ pub async fn cancel_task(thread_manager: &State<ThreadManager>) -> Json<JsonTask
             task_running: false,
         })
     }
+}
+
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+pub struct JsonTaskIndexResponse {
+    status: String,
+    task_running: bool,
+    message: String,
+    last_indexed: Option<u64>, // Added field for last indexed timestamp
+}
+
+#[get("/task/index?<force>")]
+pub async fn index_files(
+    config: &State<AppConfig>,
+    conn: DbConn,
+    thread_manager: &State<ThreadManager>,
+    force: Option<&str>,
+) -> Json<JsonTaskIndexResponse> {
+    let force_write = force
+        .unwrap_or("false")
+        .trim()
+        .parse::<bool>()
+        .unwrap_or(false);
+
+    let mut task_guard = thread_manager.task.lock().await;
+    let task_running = task_guard.is_some();
+
+    // If task is not running, start a new one
+    if !task_running {
+        let should_cancel = thread_manager.should_cancel.clone();
+        should_cancel.store(false, Ordering::SeqCst);
+
+        let images_dirs = config.images_dirs.clone();
+
+        // Get the last indexed timestamp (don't use if force_write is true)
+        let last_indexed = if force_write {
+            None
+        } else {
+            // Safely get the current value
+            thread_manager
+                .last_indexed
+                .lock()
+                .await
+                .as_ref()
+                .map(|timestamp| *timestamp)
+        };
+
+        // Clone the Mutex/Arc instead of taking a reference
+        let last_indexed_mutex = thread_manager.last_indexed.clone();
+
+        let task = thread_manager.spawn(async move {
+            if should_cancel.load(Ordering::SeqCst) {
+                return;
+            }
+
+            for images_dir in images_dirs {
+                walk_directory(&images_dir, &conn, &force_write, last_indexed).await
+            }
+
+            // Update the last_indexed timestamp after completion
+            let current_time = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+
+            *last_indexed_mutex.lock().await = Some(current_time);
+        });
+
+        *task_guard = Some(task);
+    }
+
+    // For the response, get the current last_indexed value
+    let last_indexed_value = *thread_manager.last_indexed.lock().await;
+
+    // Return JSON response with task status
+    Json(JsonTaskIndexResponse {
+        status: "success".to_string(),
+        task_running,
+        message: if task_running {
+            "Indexation task is already running".to_string()
+        } else {
+            "Started new indexation task".to_string()
+        },
+        last_indexed: last_indexed_value,
+    })
 }

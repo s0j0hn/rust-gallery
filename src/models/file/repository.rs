@@ -1,8 +1,8 @@
-use crate::models::file::model::files;
 use crate::DbConn;
+use crate::models::file::model::files;
 use diesel::{self, prelude::*, sql_types};
-use rocket::serde::json::serde_json;
 use rocket::serde::Serialize;
+use rocket::serde::json::serde_json;
 use std::collections::HashSet;
 
 #[derive(
@@ -111,62 +111,65 @@ impl FileSchema {
         root: String,
         tag: String,
         extension: String,
-        equal: bool,
-        folders_size: i64,
     ) -> QueryResult<Vec<FileSchema>> {
-        if equal && folders_size > 0 {
-            let random_folders = Self::get_random_folders(conn, root, folders_size).await?;
-            let mut random_equal_files: HashSet<FileSchema> = HashSet::new();
+        conn.run(move |c| {
+            let mut query = files::table.into_boxed();
 
-            for folder in random_folders {
-                let folder_name = folder.clone();
-                let files = conn
-                    .run(move |c| {
-                        files::table
-                            .order(random())
-                            .filter(files::folder_name.eq(folder_name))
-                            .limit(size / folders_size)
-                            .load::<FileSchema>(c)
-                    })
-                    .await
-                    .unwrap_or(vec![]);
-
-                random_equal_files.extend(files);
+            // Apply filters based on parameters
+            if tag != "*" {
+                query = query.filter(files::tags.like("%\"".to_owned() + &tag + "\"%"));
             }
 
-            println!("Files length: {}", random_equal_files.len());
+            if folder_name != "*" {
+                query = query.filter(files::folder_name.eq(folder_name));
+            }
 
-            Ok(random_equal_files.into_iter().collect())
-        } else {
-            conn.run(move |c| {
-                let mut query = files::table.into_boxed();
+            if root != "*" {
+                query = query.filter(files::root.eq(root));
+            }
 
-                // Apply filters based on parameters
-                if tag != "*" {
-                    query = query.filter(files::tags.like("%\"".to_owned() + &tag + "\"%"));
-                }
+            if extension != "*" {
+                query = query.filter(files::extention.eq(extension))
+            }
 
-                if folder_name != "*" {
-                    query = query.filter(files::folder_name.eq(folder_name));
-                }
+            // Apply ordering and limit
+            query
+                .order(random())
+                .distinct()
+                .limit(size)
+                .load::<FileSchema>(c)
+        })
+        .await
+    }
 
-                if root != "*" {
-                    query = query.filter(files::root.eq(root));
-                }
+    pub async fn get_random_equal(
+        conn: &DbConn,
+        size: i64,
+        root: String,
+        folders_size: i64,
+    ) -> QueryResult<Vec<FileSchema>> {
+        let random_folders = Self::get_random_folders(conn, root, folders_size).await?;
+        let mut random_equal_files: HashSet<FileSchema> = HashSet::new();
 
-                if extension != "*" {
-                    query = query.filter(files::extention.eq(extension))
-                }
+        for folder in random_folders {
+            let folder_name = folder.clone();
+            let files = conn
+                .run(move |c| {
+                    files::table
+                        .order(random())
+                        .filter(files::folder_name.eq(folder_name))
+                        .limit(size / folders_size)
+                        .load::<FileSchema>(c)
+                })
+                .await
+                .unwrap_or(vec![]);
 
-                // Apply ordering and limit
-                query
-                    .order(random())
-                    .distinct()
-                    .limit(size)
-                    .load::<FileSchema>(c)
-            })
-            .await
+            random_equal_files.extend(files);
         }
+
+        println!("Files length: {}", random_equal_files.len());
+
+        Ok(random_equal_files.into_iter().collect())
     }
 
     pub async fn get_random_folders(
@@ -265,11 +268,9 @@ impl FileSchema {
             let mut unique_tags = HashSet::new();
 
             for tags_option in all_tags.into_iter().flatten() {
-                if let tags_json = tags_option {
-                    if let Ok(tags_array) = serde_json::from_str::<Vec<String>>(&tags_json) {
-                        for tag in tags_array {
-                            unique_tags.insert(tag);
-                        }
+                if let Ok(tags_array) = serde_json::from_str::<Vec<String>>(&tags_option) {
+                    for tag in tags_array {
+                        unique_tags.insert(tag);
                     }
                 }
             }

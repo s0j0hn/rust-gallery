@@ -11,11 +11,33 @@
       "description": "Main server"
     },
     {
-      "url": "http://localhost:3000",
-      "description": "Local react server"
+      "url": "http://localhost:8000",
+      "description": "Local rust server"
     }
   ],
   "paths": {
+    "/config": {
+      "get": {
+        "summary": "Get config information",
+        "description": "Returns a application configuration",
+        "operationId": "getConfig",
+        "responses": {
+          "200": {
+            "description": "Config data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Config"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "config"
+        ]
+      }
+    },
     "/folders/roots": {
       "get": {
         "summary": "Get all root folders",
@@ -303,10 +325,33 @@
         "operationId": "getRandomPhotos",
         "parameters": [
           {
+            "name": "root",
+            "in": "query",
+            "description": "Root name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "extension",
+            "in": "query",
+            "description": "Extension file",
+            "schema": {
+              "enum": ["JPG", "PNG", "GIF", "WEBP"]
+            }
+          },
+          {
             "name": "folder",
             "in": "query",
             "description": "Folder name",
-            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "description": "Tag name",
             "schema": {
               "type": "string"
             }
@@ -318,6 +363,33 @@
             "schema": {
               "type": "integer",
               "default": 200
+            }
+          },
+          {
+            "name": "equal",
+            "in": "query",
+            "description": "Per folder size enabled",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "name": "equal_size",
+            "in": "query",
+            "description": "Per folder size photos",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Random Size",
+            "schema": {
+              "type": "integer",
+              "default": 100
             }
           }
         ],
@@ -504,6 +576,24 @@
   },
   "components": {
     "schemas": {
+      "Config": {
+        "type": "object",
+        "description": "Represents a config data of the server",
+        "properties": {
+          "random_equal_folders": {
+            "type": "integer",
+            "description": "Number of equal photo per folder"
+          },
+          "photo_per_random": {
+            "type": "integer",
+            "description": "Number of photos per random session"
+          },
+          "folders_per_page": {
+            "type": "integer",
+            "description": "Number of folders per page"
+          }
+        }
+      },
       "Root": {
         "type": "object",
         "description": "Represents a root level folder in the gallery",

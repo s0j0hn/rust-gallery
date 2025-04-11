@@ -1,17 +1,15 @@
-use crate::handlers::tasks::task_manager::ThreadManager;
+use crate::DbConn;
+use crate::cache_files::CachedImage;
 use crate::models::file::repository::{FileSchema, Image};
-use crate::{AppConfig, DbConn};
-use image::ImageReader;
-use rocket::serde::json::Json;
-use rocket::serde::Serialize;
-use rocket::State;
+use image::{DynamicImage, ImageFormat, ImageReader};
+use rocket::http::ContentType;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
+use std::fmt::Write;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::Ordering;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, UNIX_EPOCH};
 use std::{fs, io};
 use walkdir::{DirEntry, WalkDir};
 
@@ -227,7 +225,15 @@ fn calculate_sha256(path: &Path) -> io::Result<String> {
 
     let hash = hasher.finalize();
 
-    Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
+    // Pre-allocate a string with the right capacity (2 hex chars per byte)
+    let mut hex_string = String::with_capacity(hash.len() * 2);
+
+    hash.iter().fold(&mut hex_string, |string, byte| {
+        let _ = write!(string, "{:02x}", byte);
+        string
+    });
+
+    Ok(hex_string)
 }
 
 struct ImageInfo {
@@ -238,87 +244,49 @@ struct ImageInfo {
     h: u32,
 }
 
-#[derive(Serialize)]
-#[serde(crate = "rocket::serde")]
-pub struct JsonTaskIndexResponse {
-    status: String,
-    task_running: bool,
-    message: String,
-    last_indexed: Option<u64>, // Added field for last indexed timestamp
+// Helper function to determine content type from file extension
+pub fn get_content_type(extension: &str) -> ContentType {
+    match extension.to_lowercase().as_str() {
+        "png" => ContentType::PNG,
+        "jpg" | "jpeg" => ContentType::JPEG,
+        "gif" => ContentType::GIF,
+        "webp" => ContentType::new("image", "webp"),
+        "avif" => ContentType::new("image", "avif"),
+        _ => ContentType::JPEG, // Default
+    }
 }
 
-#[get("/task/index?<force>")]
-pub async fn index_files(
-    config: &State<AppConfig>,
-    conn: DbConn,
-    thread_manager: &State<ThreadManager>,
-    force: Option<&str>,
-) -> Json<JsonTaskIndexResponse> {
-    let force_write = force
-        .unwrap_or("false")
-        .trim()
-        .parse::<bool>()
-        .unwrap_or(false);
+// Helper function to create CachedImage with caching headers
+pub fn create_cached_image(
+    data: Vec<u8>,
+    extension: &str,
+    cache_duration_secs: u64,
+) -> CachedImage {
+    let content_type = get_content_type(extension);
+    let cache_duration = Duration::from_secs(cache_duration_secs);
+    CachedImage::with_cache(data, content_type, cache_duration)
+}
 
-    let mut task_guard = thread_manager.task.lock().await;
-    let task_running = task_guard.is_some();
+pub fn read_file_to_buffer(path: &str) -> std::io::Result<Vec<u8>> {
+    let mut file = File::open(path)?;
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer)?;
+    Ok(buffer)
+}
 
-    // If task is not running, start a new one
-    if !task_running {
-        let should_cancel = thread_manager.should_cancel.clone();
-        should_cancel.store(false, Ordering::SeqCst);
+pub fn create_image_buffer(f_schema: &FileSchema, image: &DynamicImage) -> Vec<u8> {
+    let format = match f_schema.extention.as_str() {
+        "png" => ImageFormat::Png,
+        "jpg" | "jpeg" => ImageFormat::Jpeg,
+        "gif" => ImageFormat::Gif,
+        "webp" => ImageFormat::WebP,
+        _ => ImageFormat::Avif,
+    };
 
-        let images_dirs = config.images_dirs.clone();
-
-        // Get the last indexed timestamp (don't use if force_write is true)
-        let last_indexed = if force_write {
-            None
-        } else {
-            // Safely get the current value
-            thread_manager
-                .last_indexed
-                .lock()
-                .await
-                .as_ref()
-                .map(|timestamp| *timestamp)
-        };
-
-        // Clone the Mutex/Arc instead of taking a reference
-        let last_indexed_mutex = thread_manager.last_indexed.clone();
-
-        let task = thread_manager.spawn(async move {
-            if should_cancel.load(Ordering::SeqCst) {
-                return;
-            }
-
-            for images_dir in images_dirs {
-                walk_directory(&images_dir, &conn, &force_write, last_indexed).await
-            }
-
-            // Update the last_indexed timestamp after completion
-            let current_time = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-
-            *last_indexed_mutex.lock().await = Some(current_time);
-        });
-
-        *task_guard = Some(task);
+    let mut buffer = Vec::new();
+    if let Err(e) = image.write_to(&mut Cursor::new(&mut buffer), format) {
+        eprintln!("Error encoding image: {:?}", e);
+        return Vec::new(); // Return empty buffer on error
     }
-
-    // For the response, get the current last_indexed value
-    let last_indexed_value = *thread_manager.last_indexed.lock().await;
-
-    // Return JSON response with task status
-    Json(JsonTaskIndexResponse {
-        status: "success".to_string(),
-        task_running,
-        message: if task_running {
-            "Indexation task is already running".to_string()
-        } else {
-            "Started new indexation task".to_string()
-        },
-        last_indexed: last_indexed_value,
-    })
+    buffer
 }

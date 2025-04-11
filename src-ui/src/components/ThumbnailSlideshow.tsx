@@ -55,7 +55,7 @@ const ThumbnailSlideshow: FC<ThumbnailSlideshowProps> = ({
     // Reset loaded state when thumbnails change
     useEffect(() => {
         setLoadedImages({})
-    }, [thumbnails])
+    }, [])
 
     // Set up interval for changing thumbnails when not being touched
     useEffect(() => {

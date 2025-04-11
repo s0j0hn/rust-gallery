@@ -1,35 +1,16 @@
-use crate::cache_files::{CachedImage, ImageCache};
-use crate::models::file::repository::FileSchema;
 use crate::DbConn;
-use image::{DynamicImage, ImageFormat};
-use rocket::http::ContentType;
+use crate::cache_files::{CachedImage, ImageCache, StateFiles};
+use crate::handlers::files::utils::{
+    create_cached_image, create_image_buffer, read_file_to_buffer,
+};
+use crate::models::file::repository::FileSchema;
+use rocket::form::FromForm;
 use rocket::http::Status;
 use rocket::response::status;
-use rocket::serde::json::{json, Json, Value};
+use rocket::serde::Serialize;
+use rocket::serde::json::{Json, Value, json};
 use rocket::{Either, State};
-use std::fs::File;
-use std::io::{Cursor, Read};
 use std::path::Path;
-use std::time::Duration;
-
-// Helper function to determine content type from file extension
-fn get_content_type(extension: &str) -> ContentType {
-    match extension.to_lowercase().as_str() {
-        "png" => ContentType::PNG,
-        "jpg" | "jpeg" => ContentType::JPEG,
-        "gif" => ContentType::GIF,
-        "webp" => ContentType::new("image", "webp"),
-        "avif" => ContentType::new("image", "avif"),
-        _ => ContentType::JPEG, // Default
-    }
-}
-
-// Helper function to create CachedImage with caching headers
-fn create_cached_image(data: Vec<u8>, extension: &str, cache_duration_secs: u64) -> CachedImage {
-    let content_type = get_content_type(extension);
-    let cache_duration = Duration::from_secs(cache_duration_secs);
-    CachedImage::with_cache(data, content_type, cache_duration)
-}
 
 #[get("/<hash>/download?<width>&<height>")]
 pub async fn retrieve_file(
@@ -43,7 +24,7 @@ pub async fn retrieve_file(
         Err(e) => {
             return Either::Right(status::Custom(
                 Status::InternalServerError,
-                Json(json!({"error": format!("Database error occurred {}", e)})),
+                Json(json!({"error": format!("Database error: {}", e)})),
             ));
         }
     };
@@ -65,7 +46,7 @@ pub async fn retrieve_file(
                 Err(e) => {
                     return Either::Right(status::Custom(
                         Status::InternalServerError,
-                        Json(json!({"error": format!("Database error occurred {}", e)})),
+                        Json(json!({"error": format!("Image processing error: {}", e)})),
                     ));
                 }
             };
@@ -77,7 +58,7 @@ pub async fn retrieve_file(
         Ok(buffer) => Either::Left(create_cached_image(buffer, &f_schema.extention, 86400)), // Cache for 1 day,
         Err(e) => Either::Right(status::Custom(
             Status::InternalServerError,
-            Json(json!({"error": format!("Database error occurred {}", e)})),
+            Json(json!({"error": format!("File read error: {}", e)})),
         )),
     }
 }
@@ -107,16 +88,14 @@ pub async fn get_thumbnail_folder(
         "*".to_string(),
         "*".to_string(),
         "*".to_string(),
-        false,
-        0,
     )
     .await
     {
         Ok(schemas) => schemas,
-        Err(_) => {
+        Err(e) => {
             return Either::Right(status::Custom(
                 Status::InternalServerError,
-                Json(json!({"error": "Database error occurred"})),
+                Json(json!({"error": format!("Database error: {}", e)})),
             ));
         }
     };
@@ -161,7 +140,7 @@ pub async fn get_thumbnail_folder(
                 eprintln!("Image processing error for {}: {:?}", &f_schema.path, err);
                 return Either::Right(status::Custom(
                     Status::InternalServerError,
-                    Json(json!({"error": "Failed to process image"})),
+                    Json(json!({"error": format!("Failed to process image thumbnail: {}", err)})),
                 ));
             }
         }
@@ -234,7 +213,7 @@ pub async fn get_thumbnail_photo(
                 eprintln!("Image processing error for {}: {:?}", &f_schema.path, err);
                 return Either::Right(status::Custom(
                     Status::InternalServerError,
-                    Json(json!({"error": "Failed to process image"})),
+                    Json(json!({"error": format!("Failed to process image thumbnail: {}", err)})),
                 ));
             }
         }
@@ -250,26 +229,143 @@ pub async fn get_thumbnail_photo(
     }
 }
 
-fn read_file_to_buffer(path: &str) -> std::io::Result<Vec<u8>> {
-    let mut file = File::open(path)?;
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer)?;
-    Ok(buffer)
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+pub struct JsonFileResponse {
+    items: Vec<FileSchema>,
+    page: usize,
+    total: usize,
 }
 
-pub fn create_image_buffer(f_schema: &FileSchema, image: &DynamicImage) -> Vec<u8> {
-    let format = match f_schema.extention.as_str() {
-        "png" => ImageFormat::Png,
-        "jpg" | "jpeg" => ImageFormat::Jpeg,
-        "gif" => ImageFormat::Gif,
-        "webp" => ImageFormat::WebP,
-        _ => ImageFormat::Avif,
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+pub struct JsonFileTagsResponse {
+    tags: Vec<String>,
+}
+
+impl JsonFileResponse {
+    // Helper method to create a response with files
+    fn with_files(files: Vec<FileSchema>, page: usize, total: usize) -> Json<Self> {
+        Json(Self {
+            items: files,
+            page,
+            total,
+        })
+    }
+
+    // Helper method to create an empty response
+    fn empty(page: usize) -> Json<Self> {
+        Json(Self {
+            items: vec![],
+            page,
+            total: 0,
+        })
+    }
+
+    // Helper method to handle database errors
+    fn handle_error<T>(error: T, page: usize) -> Json<Self>
+    where
+        T: std::fmt::Display,
+    {
+        error!("Database error: {}", error);
+        Self::empty(page)
+    }
+}
+
+#[derive(FromForm)]
+pub struct RandomQuery {
+    #[field(default = 10)]
+    pub size: usize,
+    #[field(default = "*")]
+    pub folder: String,
+    #[field(default = "*")]
+    pub tag: String,
+    #[field(default = false)]
+    pub equal: bool,
+    #[field(default = 50)]
+    pub equal_size: usize,
+    #[field(default = "*")]
+    pub root: String,
+    #[field(default = "*")]
+    pub extension: String,
+}
+
+#[get("/random/json?<query..>", format = "json")]
+pub async fn random_json(conn: DbConn, query: RandomQuery) -> Json<JsonFileResponse> {
+    if query.equal {
+        match FileSchema::get_random_equal(
+            &conn,
+            query.size as i64,
+            query.root.to_string(),
+            query.equal_size as i64,
+        )
+        .await
+        {
+            Ok(files) => JsonFileResponse::with_files(files, 1, query.size),
+            Err(e) => JsonFileResponse::handle_error(e, 1),
+        }
+    } else {
+        match FileSchema::random(
+            &conn,
+            query.folder,
+            query.size as i64,
+            query.root.to_string(),
+            query.tag.to_string(),
+            query.extension,
+        )
+        .await
+        {
+            Ok(files) => JsonFileResponse::with_files(files, 1, query.size),
+            Err(e) => JsonFileResponse::handle_error(e, 1),
+        }
+    }
+}
+
+#[get("/json?<folder>&<page>&<per_page>", format = "json")]
+pub async fn get_all_files_json(
+    conn: DbConn,
+    page: Option<usize>,
+    per_page: Option<usize>,
+    folder: Option<&str>,
+    state_files: &State<StateFiles>,
+) -> Json<JsonFileResponse> {
+    let current_page = page.unwrap_or(1);
+    let items_per_page = per_page.unwrap_or(25);
+    let folder_filter = folder.unwrap_or("*");
+
+    let mut lock = state_files.files.lock().await;
+
+    if let Some(folder_files) = lock.get(folder_filter) {
+        if !folder_files.is_empty() {
+            return JsonFileResponse::with_files(
+                folder_files.clone(),
+                current_page,
+                folder_files.len(),
+            );
+        }
+    }
+
+    // Calculate offset (avoid underflow by checking page > 0)
+    let offset = if current_page > 0 {
+        (current_page - 1) * items_per_page
+    } else {
+        0
     };
 
-    let mut buffer = Vec::new();
-    if let Err(e) = image.write_to(&mut Cursor::new(&mut buffer), format) {
-        eprintln!("Error encoding image: {:?}", e);
-        return Vec::new(); // Return empty buffer on error
+    match FileSchema::all_paged(
+        &conn,
+        items_per_page as i64,
+        offset as i64,
+        folder_filter.to_string(),
+    )
+    .await
+    {
+        Ok(files) => {
+            lock.entry(folder_filter.to_string())
+                .or_insert_with(Vec::new)
+                .extend(files.clone());
+            JsonFileResponse::with_files(files.clone(), current_page, files.len())
+        }
+        Err(e) => JsonFileResponse::handle_error(e, current_page),
     }
-    buffer
 }

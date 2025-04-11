@@ -1,6 +1,6 @@
+use crate::DbConn;
 use crate::models::file::repository::FileSchema;
-use crate::{DbConn};
-use rocket::serde::json::{json, Json, Value};
+use rocket::serde::json::{Json, Value, json};
 use rocket::serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -181,4 +181,3 @@ fn format_search_pattern(pattern: &str) -> String {
         format!("%{}%", pattern)
     }
 }
-

@@ -1,89 +1,49 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import MenuSection from '../components/MenuSection'
-import { Folder, JsonFilePhoto } from '../types/gallery'
+import { JsonFilePhoto } from '../types/gallery'
 import { api } from '../services/api'
 import PhotoSwipeGallery from '../components/PhotoSwipeGallery'
-import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
+import { useConfig } from '../context/ConfigContext'
 
 const TagView: React.FC = () => {
     const { tagName } = useParams<{ tagName: string }>()
     const [photos, setPhotos] = useState<JsonFilePhoto[]>([])
-    // const [page, setPage] = useState<number>(1)
-    const [showEverything, setShowEverything] = useState<boolean>(false)
-    const [hasMore, setHasMore] = useState<boolean>(true)
-    const [loading, setLoading] = useState<boolean>(true)
-    const [sFolder, setFolder] = useState<Folder | null>(null)
-    // const { folderName } = useParams<{ folderName: string }>()
+    const [loading, setLoading] = useState<boolean>(false)
+    const [error, setError] = useState<string | null>(null)
+    const { config } = useConfig()
     const navigate = useNavigate()
 
-    // Load more photos function for infinite scroll
-    const loadMorePhotos = async () => {
-        if (!tagName || !hasMore || loading) return
-
-        setLoading(true)
-        try {
-            const data = await api.photos.getRandomByTag(tagName, 300, true)
-
-            // If we got fewer items than perPage, or no items, there are no more photos
-            if (data.items.length === 0) {
-                setHasMore(false)
-            }
-
-            // Append new photos to existing ones
-            setPhotos((prevPhotos) => [...prevPhotos, ...data.items])
-            // setPage((prevPage) => prevPage + 1)
-        } catch (err) {
-            console.error('Failed to fetch more photos:', err)
-            setHasMore(false)
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    // Infinite scroll hook
-    const loadMoreRef = useInfiniteScroll({
-        onLoadMore: loadMorePhotos,
-        hasMore,
-        loading,
-    })
-
-    // First effect: Fetch folder details
-    // useEffect(() => {
-    //     if (!folderName) return
-    //
-    //     setLoading(true)
-    //     setPhotos([]) // Reset photos when folder changes
-    //     setPage(1) // Reset page
-    //     setHasMore(true) // Reset hasMore
-    //
-    //     api.folders
-    //         .getByName(folderName)
-    //         .then(async (folder) => {
-    //             if (folder) {
-    //                 folder.tags = await api.tags.getAll(folder.title)
-    //                 setFolder(folder)
-    //             }
-    //         })
-    //         .catch((err) =>
-    //             console.error('Failed to fetch folder details:', err)
-    //         )
-    //         .finally(() => setLoading(false))
-    // }, [folderName])
-
-    // Second effect: Initial photos fetch
+    // Load photos for the selected tag
     useEffect(() => {
         if (!tagName) return
 
-        loadMorePhotos() // Initial load of photos
-    }, [tagName]) // Only run on folder change
+        const fetchPhotos = async () => {
+            setLoading(true)
+            setError(null)
+
+            try {
+                console.log(`Fetching photos for tag: ${tagName}`)
+                const data = await api.photos.getRandomByTag(
+                    tagName,
+                    config.photo_per_random
+                )
+                console.log(`Received ${data.items.length} photos`)
+
+                setPhotos(data.items)
+            } catch (err) {
+                console.error('Failed to fetch photos:', err)
+                setError('Failed to load photos. Please try again.')
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchPhotos()
+    }, [tagName, config.photo_per_random])
 
     const handleBack = () => {
-        if (sFolder?.root) {
-            navigate(`/?root=${sFolder.root}`)
-        } else {
-            navigate('/')
-        }
+        navigate('/')
     }
 
     const handleTagClick = (type: 'tag' | 'root', value: string) => {
@@ -98,10 +58,43 @@ const TagView: React.FC = () => {
         navigate('/api-docs')
     }
 
-    if (!photos.length && loading) {
+    // Show loading state
+    if (loading) {
         return (
-            <div className="flex justify-center items-center h-64">
-                Loading photos...
+            <div className="min-h-screen bg-gray-100">
+                <div className="container mx-auto p-4">
+                    <MenuSection
+                        onTagClick={handleTagClick}
+                        onApiDocsClick={handleApiDocsClick}
+                    />
+                    <div className="flex justify-center items-center h-64">
+                        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="ml-3 text-lg">Loading photos...</span>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    // Show error state
+    if (error) {
+        return (
+            <div className="min-h-screen bg-gray-100">
+                <div className="container mx-auto p-4">
+                    <MenuSection
+                        onTagClick={handleTagClick}
+                        onApiDocsClick={handleApiDocsClick}
+                    />
+                    <div className="flex flex-col justify-center items-center h-64">
+                        <div className="text-red-500 mb-4">{error}</div>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                </div>
             </div>
         )
     }
@@ -122,40 +115,23 @@ const TagView: React.FC = () => {
                         >
                             Back
                         </button>
-                        <button
-                            onClick={() => {
-                                setShowEverything(!showEverything)
-                            }}
-                            className="mr-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-gray-300 transition"
-                        >
-                            Show everything
-                        </button>
                         <h1 className="text-3xl font-bold">
-                            {sFolder?.title || 'Album'}
+                            {`Photos tagged with "${tagName}"`}
                         </h1>
-                        {sFolder?.root && (
-                            <span
-                                className="ml-4 px-3 py-1 bg-blue-500 text-white text-sm rounded-full cursor-pointer hover:bg-blue-600"
-                                onClick={() =>
-                                    handleTagClick('root', sFolder.root)
-                                }
-                            >
-                                {sFolder.root}
-                            </span>
-                        )}
                     </div>
 
-                    <PhotoSwipeGallery images={photos} />
+                    {photos.length > 0 ? (
+                        <PhotoSwipeGallery images={photos} />
+                    ) : (
+                        <div className="text-center py-8">
+                            No photos found with this tag.
+                        </div>
+                    )}
 
-                    {/* Infinite scroll sentinel */}
-                    {hasMore && (
-                        <div
-                            ref={loadMoreRef}
-                            className="flex justify-center items-center py-8"
-                        >
-                            {loading && (
-                                <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                            )}
+                    {/* Show total count if available */}
+                    {photos.length > 0 && (
+                        <div className="text-center text-gray-600 mt-4">
+                            Showing {photos.length} photos
                         </div>
                     )}
                 </div>
