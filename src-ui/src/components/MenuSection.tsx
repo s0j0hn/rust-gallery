@@ -187,7 +187,7 @@ const MenuSection: React.FC<MenuSectionProps> = ({
 
                 {/* Make search bar responsive */}
                 <div
-                    className={`${isMobile ? 'w-full' : 'w-full max-w-md ml-4'}`}
+                    className={`${isMobile ? 'w-full' : 'w-full max-w-md ml-6'}`}
                 >
                     <SearchBar
                         value={searchQuery || ''}

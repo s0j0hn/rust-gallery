@@ -179,12 +179,12 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
 
     // Refresh folders (used for initial load or reset)
     const refreshFolders = useCallback(async () => {
-        await refreshConfig()
+        // await refreshConfig()
         setPage(1)
         const newFolders = await fetchFolders(1, selectedRoot, searchQuery)
         setFolders(newFolders)
         setFilteredFolders(newFolders)
-    }, [fetchFolders, selectedRoot, searchQuery, refreshConfig])
+    }, [fetchFolders, selectedRoot, searchQuery])
 
     // Load more folders function
     const loadMoreFolders = useCallback(async () => {

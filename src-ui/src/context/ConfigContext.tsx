@@ -18,8 +18,8 @@ interface ConfigContextType {
 
 const defaultConfig: JsonConfig = {
     random_equal_folders: 25,
-    photo_per_random: 300,
-    folders_per_page: 8,
+    photo_per_random: 500,
+    folders_per_page: 16,
     equal_enabled: 1,
 }
 
@@ -52,20 +52,23 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({
         }
     }, [])
 
-    const updateConfig = useCallback(async (newConfig: JsonConfig) => {
-        try {
-            setLoading(true)
-            await api.config.updateConfig(newConfig)
-            setConfig(newConfig)
-            setError(null)
-        } catch (err) {
-            console.error('Failed to update configuration:', err)
-            setError('Failed to update configuration')
-            throw err
-        } finally {
-            setLoading(false)
-        }
-    }, [])
+    const updateConfig = useCallback(
+        async (newConfig: JsonConfig) => {
+            try {
+                setLoading(true)
+                await api.config.updateConfig(newConfig)
+                setConfig(newConfig)
+                setError(null)
+            } catch (err) {
+                console.error('Failed to update configuration:', err)
+                setError('Failed to update configuration')
+                throw err
+            } finally {
+                setLoading(false)
+            }
+        },
+        [config]
+    )
 
     useEffect(() => {
         refreshConfig()

@@ -287,21 +287,6 @@ export const api = {
             })
             return response.data
         },
-
-        // Update photo tags
-        updateTags: async (
-            imageHash: string,
-            tags: string[]
-        ): Promise<string[]> => {
-            const sanitizedHash = sanitize.string(imageHash)
-            const sanitizedTags = sanitize.stringArray(tags)
-
-            const response = await apiClient.post(`/tags/assign`, {
-                tags: sanitizedTags,
-                image_hash: sanitizedHash,
-            })
-            return response.data.tags ? response.data.tags : []
-        },
     },
 
     // Tag-related API calls

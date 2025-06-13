@@ -124,7 +124,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
 
             {/* Search status indicator */}
             {value && (
-                <div className="absolute -bottom-6 left-0 text-sm text-blue-600 font-medium flex items-center">
+                <div className="relative  left-0 text-sm text-blue-600 font-medium flex items-center">
                     <Search size={12} className="mr-1" />
                     Searching: "{value}"
                     <button
@@ -139,7 +139,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
 
             {/* Recent searches dropdown */}
             {showRecent && recentSearches.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-md z-10 border border-gray-200">
+                <div className="absolute top-full left-0 right-0 bg-white rounded-md shadow-md z-10 border border-gray-200 mt-2">
                     <div className="p-2 border-b border-gray-100">
                         <p className="text-xs text-gray-500 font-medium flex items-center">
                             <Clock size={12} className="mr-1" />

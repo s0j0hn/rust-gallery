@@ -4,6 +4,7 @@ import { api } from '../services/api'
 import { useConfig } from './ConfigContext'
 
 interface UIContextType {
+    refreshConfig: () => void
     tagDialogOpen: boolean
     deleteDialogOpen: boolean
     randomPhotoDialogOpen: boolean
@@ -85,6 +86,7 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     return (
         <UIContext.Provider
             value={{
+                refreshConfig,
                 tagDialogOpen,
                 deleteDialogOpen,
                 randomPhotoDialogOpen,

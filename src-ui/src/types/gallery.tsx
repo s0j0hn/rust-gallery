@@ -51,17 +51,6 @@ export interface JsonFilePhoto {
     root: string
 }
 
-export interface Photo {
-    id: number
-    title: string
-    thumbnail: string
-    src: string
-    w: number
-    h: number
-    tags: string[]
-    folderName?: string // Optional property, present when viewing photos by tag
-}
-
 export interface MenuSectionProps {
     folders?: Folder[]
     tags?: string[]

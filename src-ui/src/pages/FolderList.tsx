@@ -30,6 +30,7 @@ const FolderList: React.FC = () => {
     } = useFolders()
 
     const {
+        refreshConfig,
         tagDialogOpen,
         deleteDialogOpen,
         randomPhotoDialogOpen,
@@ -78,6 +79,7 @@ const FolderList: React.FC = () => {
 
     // Update URL when selectedRoot changes
     useEffect(() => {
+        //refreshConfig()
         updateRootInUrl(selectedRoot)
     }, [selectedRoot])
 
