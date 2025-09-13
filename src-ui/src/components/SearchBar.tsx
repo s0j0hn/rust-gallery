@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { Search, X, Clock } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
+import { Clock, Search, X } from 'lucide-react'
 
 interface SearchBarProps {
     value: string

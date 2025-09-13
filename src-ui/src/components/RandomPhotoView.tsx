@@ -23,7 +23,7 @@ const RandomPhotoView: FC<RandomPhotoProps> = ({ photos }) => {
             withDownloadButton
             onOpen={(pswpInstance) => {
                 pswpInstance.on('close', () => {
-                    console.log('CLOSED CALLED')
+                    // Gallery closed
                     closeRandomPhotos()
                 })
             }}

@@ -3,7 +3,7 @@ table! {
         id -> Nullable<Integer>,
         path -> Text,
         hash -> Text,
-        extention -> Text,
+        extension -> Text,
         filename -> Text,
         folder_name -> Text,
         width -> Integer,

@@ -44,7 +44,7 @@
     font-size: 13px;
 }
 
-/* Adjust modal for mobile */
+/* Adjust modal */
 @media (max-width: 768px) {
     .swagger-container .swagger-ui .dialog-ux .modal-ux {
         width: 90%;

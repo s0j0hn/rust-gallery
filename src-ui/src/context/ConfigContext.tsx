@@ -67,7 +67,7 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({
                 setLoading(false)
             }
         },
-        [config]
+        [] // Remove config dependency as it's not used in the callback
     )
 
     useEffect(() => {

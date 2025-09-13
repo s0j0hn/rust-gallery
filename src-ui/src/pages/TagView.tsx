@@ -23,12 +23,12 @@ const TagView: React.FC = () => {
             setError(null)
 
             try {
-                console.log(`Fetching photos for tag: ${tagName}`)
+                // Fetching photos for tag
                 const data = await api.photos.getRandomByTag(
                     tagName,
                     config.photo_per_random
                 )
-                console.log(`Received ${data.items.length} photos`)
+                // Photos received
 
                 setPhotos(data.items)
             } catch (err) {
@@ -100,7 +100,7 @@ const TagView: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 mobile-safe-bottom">
+        <div className="min-h-screen bg-gray-100">
             <div className="container mx-auto p-4">
                 <MenuSection
                     onTagClick={handleTagClick}

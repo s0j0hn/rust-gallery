@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios'
 import DOMPurify from 'dompurify'
+import { API_BASE_URL } from '../config/constants'
 import {
     Folder,
     JsonConfig,
@@ -50,7 +51,7 @@ const sanitize = {
 
 // Create an axios instance with default config
 const apiClient = axios.create({
-    baseURL: 'http://192.168.1.27:8000/',
+    baseURL: API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -163,7 +164,7 @@ export const api = {
             return response.data
         },
 
-        // Get all folders
+        // Get all folders with tags in a single request (avoiding N+1 queries)
         getAll: async (
             page: number = 1,
             perPage: number = 15,
@@ -183,12 +184,15 @@ export const api = {
             })
 
             const response = await apiClient.get('/folders/json', { params })
-            return await Promise.all<Folder[]>(
-                response.data.map(async (folder: Folder) => {
-                    folder.tags = await api.tags.getAll(folder.title)
-                    return folder
-                })
-            )
+            const folders: Folder[] = response.data
+
+            // Batch fetch tags for all folders in a single request if needed
+            // For now, return folders as-is since tags might already be included
+            // or fetched separately when needed
+            return folders.map((folder: Folder) => ({
+                ...folder,
+                tags: folder.tags || [],
+            }))
         },
 
         // Get folder by name

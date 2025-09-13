@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { Folder } from '../types/gallery'
 import { useFolders } from '../hooks/useFolders'
-import useMobile from '../hooks/useMobile'
 
 interface TagDialogProps {
     folder: Folder
@@ -16,7 +15,6 @@ const TagDialog: React.FC<TagDialogProps> = ({ folder, onCancel, onSave }) => {
         tags: [...folder.tags],
     })
     const { tags, updateFolderTags } = useFolders()
-    const isMobile = useMobile()
 
     useEffect(() => {
         setlocalFolder({ ...folder, tags: [...folder.tags] })
@@ -43,9 +41,7 @@ const TagDialog: React.FC<TagDialogProps> = ({ folder, onCancel, onSave }) => {
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div
-                className={`bg-white rounded-lg p-6 w-full ${isMobile ? 'max-h-[85vh]' : 'max-w-2xl max-h-[90vh]'} overflow-hidden flex flex-col`}
-            >
+            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold">
                         Manage Tags for "{localFolder.title}"
@@ -86,9 +82,7 @@ const TagDialog: React.FC<TagDialogProps> = ({ folder, onCancel, onSave }) => {
 
                 <div className="overflow-auto flex-grow">
                     <h4 className="font-semibold mb-2">Available Tags</h4>
-                    <div
-                        className={`grid ${isMobile ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'} gap-2`}
-                    >
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {tags
                             .filter(
                                 (tag) =>

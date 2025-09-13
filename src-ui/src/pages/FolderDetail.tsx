@@ -2,23 +2,19 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import PhotoSwipeGallery from '../components/PhotoSwipeGallery'
 import MenuSection from '../components/MenuSection'
-import MobileNavigation from '../components/MobileNavigation'
 import { Folder, JsonFilePhoto } from '../types/gallery'
 import { api } from '../services/api'
-import { useFolders } from '../hooks/useFolders'
-import useMobile from '../hooks/useMobile'
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
 
 const FolderDetail: React.FC = () => {
     const [photos, setPhotos] = useState<JsonFilePhoto[]>([])
     const [page, setPage] = useState<number>(1)
-    const [showEverything, setShowEverything] = useState<boolean>(false)
+    // Removed unused state: showEverything
     const [hasMore, setHasMore] = useState<boolean>(true)
     const [loading, setLoading] = useState<boolean>(true)
     const [sFolder, setFolder] = useState<Folder | null>(null)
     const { folderName } = useParams<{ folderName: string }>()
     const navigate = useNavigate()
-    const isMobile = useMobile()
     const perPage = 200 // Reduced from 200 to improve initial load time
 
     // Load more photos function for infinite scroll
@@ -114,7 +110,7 @@ const FolderDetail: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 mobile-safe-bottom">
+        <div className="min-h-screen bg-gray-100">
             <div className="container mx-auto p-4">
                 <MenuSection
                     onTagClick={handleTagClick}
@@ -128,14 +124,6 @@ const FolderDetail: React.FC = () => {
                             className="mr-4 px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition"
                         >
                             Back
-                        </button>
-                        <button
-                            onClick={() => {
-                                setShowEverything(!showEverything)
-                            }}
-                            className="mr-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-gray-300 transition"
-                        >
-                            Show everything
                         </button>
                         <h1 className="text-3xl font-bold">
                             {sFolder?.title || 'Album'}
@@ -167,21 +155,6 @@ const FolderDetail: React.FC = () => {
                     )}
                 </div>
             </div>
-
-            {/*{isMobile && (*/}
-            {/*    <MobileNavigation*/}
-            {/*        onHomeClick={handleBack}*/}
-            {/*        onRootClick={() => {*/}
-            {/*            navigate('/', { state: { showRoots: true } })*/}
-            {/*        }}*/}
-            {/*        onTagsClick={() => {*/}
-            {/*            navigate('/')*/}
-            {/*        }}*/}
-            {/*        onIndexClick={startIndexation}*/}
-            {/*        onApiDocsClick={handleApiDocsClick}*/}
-            {/*        isIndexing={isIndexing}*/}
-            {/*    />*/}
-            {/*)}*/}
         </div>
     )
 }

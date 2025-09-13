@@ -15,16 +15,6 @@ pub type ImageCache = Arc<Cache<String, Vec<u8>>>;
 pub struct CachedImage(pub Vec<u8>, pub Option<ContentType>, pub Option<Duration>);
 
 impl CachedImage {
-    // Constructor with default values
-    // pub fn new(data: Vec<u8>) -> Self {
-    //     CachedImage(data, None, None)
-    // }
-
-    // Constructor with content type
-    // pub fn with_content_type(data: Vec<u8>, content_type: ContentType) -> Self {
-    //     CachedImage(data, Some(content_type), None)
-    // }
-
     // Constructor with content type and cache duration
     pub fn with_cache(data: Vec<u8>, content_type: ContentType, cache_duration: Duration) -> Self {
         CachedImage(data, Some(content_type), Some(cache_duration))
@@ -50,11 +40,11 @@ impl<'r> Responder<'r, 'static> for CachedImage {
         let seconds = cache_duration.as_secs();
 
         // Cache-Control header
-        let cache_control = format!("public, max-age={}", seconds);
+        let cache_control = format!("public, max-age={seconds}");
         response = response.header(Header::new("Cache-Control", cache_control));
 
         // ETag header - we calculated this earlier
-        let etag_value = format!("\"{}\"", etag);
+        let etag_value = format!("\"{etag}\"");
         response = response.header(Header::new("ETag", etag_value));
 
         // Expires header

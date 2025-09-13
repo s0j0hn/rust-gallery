@@ -36,7 +36,3 @@
         transform: rotate(360deg);
     }
 }
-
-.mobile-safe-bottom {
-    padding-bottom: 70px; /* Adjust based on your navigation height */
-}

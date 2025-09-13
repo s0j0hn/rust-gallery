@@ -1,4 +1,5 @@
 use crate::DbConn;
+use crate::error::{AppError, AppResult};
 use crate::models::file::repository::FileSchema;
 use rocket::serde::json::{Json, Value, json};
 use rocket::serde::{Deserialize, Serialize};
@@ -23,38 +24,51 @@ pub struct DeleteFolder {
     folder_name: String,
 }
 
-// Helper function for creating API responses
-fn create_response<T, E: std::fmt::Display>(result: &Result<T, E>, success_value: Value) -> Value {
-    match result {
-        Ok(_) => success_value,
-        Err(e) => {
-            error!("API error: {e}");
-            json!({ "status": "error", "message": format!("{}", e) })
-        }
-    }
-}
-
 #[post("/assign", format = "json", data = "<data>")]
-pub async fn assign_tag(conn: DbConn, data: Json<TagAssign>) -> Value {
-    let result = FileSchema::add_tags(&conn, data.image_hash.clone(), data.tags.clone()).await;
-    create_response(&result, json!({ "status": "ok", "tags": data.tags }))
+pub async fn assign_tag(conn: DbConn, data: Json<TagAssign>) -> AppResult<Value> {
+    // Validate input
+    if data.image_hash.is_empty() {
+        return Err(AppError::validation("Image hash cannot be empty"));
+    }
+
+    if data.tags.is_empty() {
+        return Err(AppError::validation("At least one tag must be provided"));
+    }
+
+    // Check if file exists
+    FileSchema::get_by_hash(data.image_hash.clone(), &conn).await?;
+
+    // Add tags
+    FileSchema::add_tags(&conn, data.image_hash.clone(), data.tags.clone()).await?;
+
+    Ok(json!({ "status": "ok", "tags": data.tags }))
 }
 
 #[post("/delete", format = "json", data = "<data>")]
-pub async fn delete_folder(conn: DbConn, data: Json<DeleteFolder>) -> Value {
-    let result = FileSchema::delete_folder_with_name(data.folder_name.clone(), &conn).await;
+pub async fn delete_folder(conn: DbConn, data: Json<DeleteFolder>) -> AppResult<Value> {
+    if data.folder_name.is_empty() {
+        return Err(AppError::validation("Folder name cannot be empty"));
+    }
 
-    // Extract the row count before passing the result to create_response
-    let affected_rows = result.as_ref().map_or(0, |count| *count);
+    let affected_rows =
+        FileSchema::delete_folder_with_name(data.folder_name.clone(), &conn).await?;
 
-    create_response(&result, json!({ "status": "ok", "rows": affected_rows }))
+    Ok(json!({ "status": "ok", "rows": affected_rows }))
 }
 
 #[post("/assign/folder", format = "json", data = "<data>")]
-pub async fn assign_tag_folder(conn: DbConn, data: Json<TagFolderAssign>) -> Value {
-    let result =
-        FileSchema::add_tags_folder(&conn, data.folder_name.clone(), data.tags.clone()).await;
-    create_response(&result, json!({ "status": "ok", "tags": data.tags }))
+pub async fn assign_tag_folder(conn: DbConn, data: Json<TagFolderAssign>) -> AppResult<Value> {
+    // Validate input
+    if data.folder_name.is_empty() {
+        return Err(AppError::validation("Folder name cannot be empty"));
+    }
+
+    if data.tags.is_empty() {
+        return Err(AppError::validation("At least one tag must be provided"));
+    }
+
+    FileSchema::add_tags_folder(&conn, data.folder_name.clone(), data.tags.clone()).await?;
+    Ok(json!({ "status": "ok", "tags": data.tags }))
 }
 
 #[derive(Serialize)]
@@ -81,49 +95,47 @@ pub async fn get_folders_json(
     searchby: Option<&str>,
     page: Option<usize>,
     per_page: Option<usize>,
-) -> Json<Vec<JsonFolderResponse>> {
+) -> AppResult<Json<Vec<JsonFolderResponse>>> {
     let current_page = page.unwrap_or(1);
     let items_per_page = per_page.unwrap_or(25);
-    // Calculate offset (avoid underflow by checking page > 0)
-    let offset = if current_page > 0 {
-        (current_page - 1) * items_per_page
+
+    // Validate pagination
+    if current_page == 0 {
+        return Err(AppError::validation("Page must be greater than 0"));
+    }
+
+    if items_per_page > 100 {
+        return Err(AppError::validation("Items per page cannot exceed 100"));
+    }
+
+    let offset = (current_page - 1) * items_per_page;
+    let search_term = searchby.unwrap_or("*");
+    let search_pattern = if search_term == "*" {
+        "%".to_string() // Match all folders when no search term is provided
     } else {
-        0
+        format_search_pattern(search_term)
     };
 
-    // Default to "_" if parameters are not provided
-    let search_term = searchby.unwrap_or("_");
-
-    // Format search patterns for both search and root
-    let search_pattern = format_search_pattern(search_term);
-
-    match FileSchema::get_folders(
+    let folders = FileSchema::get_folders(
         &conn,
         search_pattern,
         root.to_string(),
         items_per_page as i64,
         offset as i64,
     )
-    .await
-    {
-        Ok(folders) => {
-            // Map folders to response objects with tags
-            let response: Vec<JsonFolderResponse> = folders
-                .into_iter()
-                .map(|f| JsonFolderResponse {
-                    title: f.folder_name.clone(),
-                    photo_count: f.count as usize,
-                    tags: vec![],
-                    root: f.root,
-                })
-                .collect();
-            Json(response)
-        }
-        Err(e) => {
-            error!("Error retrieving folders: {e}");
-            Json(Vec::new()) // Return empty array on error
-        }
-    }
+    .await?;
+
+    let response: Vec<JsonFolderResponse> = folders
+        .into_iter()
+        .map(|f| JsonFolderResponse {
+            title: f.folder_name.clone(),
+            photo_count: f.count as usize,
+            tags: vec![],
+            root: f.root,
+        })
+        .collect();
+
+    Ok(Json(response))
 }
 
 #[get("/roots")]
@@ -171,13 +183,19 @@ pub async fn get_folder_by_name(conn: DbConn, name: &str) -> Json<Vec<JsonFolder
     }
 }
 
-// Helper function to format search pattern
+// Helper function to format search pattern safely
 fn format_search_pattern(pattern: &str) -> String {
-    if pattern.starts_with('%') && pattern.ends_with('%') {
-        // Remove percent signs if they're already there
-        pattern.trim_matches('%').to_string()
+    // Sanitize the input by escaping SQL LIKE metacharacters
+    let sanitized = pattern.replace('%', "\\%").replace('_', "\\_");
+
+    if sanitized.starts_with("\\%") && sanitized.ends_with("\\%") {
+        // Remove escaped percent signs if they're already there
+        sanitized
+            .trim_start_matches("\\%")
+            .trim_end_matches("\\%")
+            .to_string()
     } else {
         // Add percent signs for SQL LIKE pattern
-        format!("%{}%", pattern)
+        format!("%{sanitized}%")
     }
 }

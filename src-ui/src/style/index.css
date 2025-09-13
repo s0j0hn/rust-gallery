@@ -52,32 +52,25 @@
     opacity: 0.85;
 }
 
-/* Mobile Optimization */
+/* UI Optimization */
 @media (max-width: 768px) {
     .action-button {
         @apply py-3 px-4;
         min-height: 44px; /* Ensure touch targets are large enough */
     }
 
-    /* Improve tap targets for mobile */
+    /* Improve click targets */
     button,
     [role='button'],
     .clickable {
         @apply min-h-[44px] min-w-[44px] flex items-center justify-center;
     }
 
-    /* Fix bottom padding to ensure content isn't hidden behind mobile browser UI */
-    .mobile-safe-bottom {
-        padding-bottom: env(safe-area-inset-bottom, 1rem);
-    }
-
-    /* Enhanced mobile scrolling */
+    /* Enhanced scrolling */
     .scroll-container {
-        -webkit-overflow-scrolling: touch;
         scroll-behavior: smooth;
     }
 
-    /* Prevent text zoom on mobile */
     input,
     textarea,
     select,
@@ -85,7 +78,7 @@
         font-size: 16px; /* Prevent iOS zoom on focus */
     }
 
-    /* Mobile optimized PhotoSwipe */
+    /* Optimized PhotoSwipe */
     .pswp__button {
         width: 44px !important;
         height: 44px !important;

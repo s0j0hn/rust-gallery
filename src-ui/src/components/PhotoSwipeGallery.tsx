@@ -2,6 +2,7 @@ import React, { FC, useEffect, useState } from 'react'
 import { Gallery, Item, useGallery } from 'react-photoswipe-gallery'
 import '../style/photoswipe.css'
 import { JsonFilePhoto } from '../types/gallery'
+import { API_BASE_URL } from '../config/constants'
 
 interface PhotoSwipeGalleryProps {
     images: JsonFilePhoto[]
@@ -51,8 +52,8 @@ export const GalleryContent: FC<{
             {images.map((image, index) => (
                 <Item
                     key={image.hash}
-                    original={`http://192.168.1.27:8000/files/${image.hash}/download`}
-                    thumbnail={`http://192.168.1.27:8000/files/thumbnail/photo/download?hash=${image.hash}&width=400&height=300`}
+                    original={`${API_BASE_URL}/files/${image.hash}/download`}
+                    thumbnail={`${API_BASE_URL}/files/thumbnail/photo/download?hash=${image.hash}&width=400&height=300`}
                     width={image.width}
                     alt={`${image.filename}.${image.extention}`}
                     height={image.height}
@@ -65,10 +66,10 @@ export const GalleryContent: FC<{
                                     ref={ref}
                                     hidden={hidden}
                                     srcSet={`
-                                        http://192.168.1.27:8000/files/thumbnail/photo/download?hash=${image.hash}&width=150&height=200 1x,
-                                        http://192.168.1.27:8000/files/thumbnail/photo/download?hash=${image.hash}&width=400&height=300 2x
+                                        ${API_BASE_URL}/files/thumbnail/photo/download?hash=${image.hash}&width=150&height=200 1x,
+                                        ${API_BASE_URL}/files/thumbnail/photo/download?hash=${image.hash}&width=400&height=300 2x
                                     `}
-                                    src={`http://192.168.1.27:8000/files/thumbnail/photo/download?hash=${image.hash}&width=400&height=300`}
+                                    src={`${API_BASE_URL}/files/thumbnail/photo/download?hash=${image.hash}&width=400&height=300`}
                                     alt={`${image.filename}.${image.extention}`}
                                     loading="lazy"
                                     fetchPriority="low"

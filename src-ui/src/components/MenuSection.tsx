@@ -5,17 +5,14 @@ import {
     FolderOpen,
     Info,
     RefreshCw,
-    Search,
     Settings,
     Tag,
-    X,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useFolders } from '../hooks/useFolders'
 import { MenuSectionProps } from '../types/gallery'
 import CacheManager from './CacheManager'
 import ConfigManager from './ConfigManager'
-import useMobile from '../hooks/useMobile'
 import SearchBar from './SearchBar'
 
 const MenuSection: React.FC<MenuSectionProps> = ({
@@ -28,7 +25,6 @@ const MenuSection: React.FC<MenuSectionProps> = ({
     const [menuOpen, setMenuOpen] = useState<boolean>(isOpen)
     const [showCacheManager, setShowCacheManager] = useState<boolean>(false)
     const [showConfigManager, setShowConfigManager] = useState<boolean>(false)
-    const isMobile = useMobile() // Add this to detect mobile view
 
     const {
         folders,
@@ -69,7 +65,7 @@ const MenuSection: React.FC<MenuSectionProps> = ({
 
     const handleRootClick = (rootName: string) => {
         if (rootName) {
-            console.log('Click on: ' + rootName)
+            // Root clicked: rootName
             setSelectedRoot(rootName)
         }
     }
@@ -108,13 +104,8 @@ const MenuSection: React.FC<MenuSectionProps> = ({
             className="mb-16 menu-section"
             data-open={menuOpen ? 'true' : 'false'}
         >
-            {/* Updated layout for mobile responsiveness */}
-            <div
-                className={`${isMobile ? 'flex flex-col space-y-3' : 'flex justify-between items-center'} mb-4`}
-            >
-                <div
-                    className={`${isMobile ? 'flex flex-wrap gap-2' : 'flex space-x-2'}`}
-                >
+            <div className="flex justify-between items-center mb-4">
+                <div className="flex space-x-2">
                     <button
                         onClick={handleMenuToggle}
                         className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition flex items-center"
@@ -186,9 +177,7 @@ const MenuSection: React.FC<MenuSectionProps> = ({
                 </div>
 
                 {/* Make search bar responsive */}
-                <div
-                    className={`${isMobile ? 'w-full' : 'w-full max-w-md ml-6'}`}
-                >
+                <div className="w-full max-w-md ml-6">
                     <SearchBar
                         value={searchQuery || ''}
                         onChange={setSearchQuery}
@@ -199,9 +188,7 @@ const MenuSection: React.FC<MenuSectionProps> = ({
 
             {menuOpen && (
                 <div className="bg-white p-4 rounded-lg shadow-md mt-12 transition-all">
-                    <div
-                        className={`grid grid-cols-1 ${isMobile ? '' : 'md:grid-cols-3'} gap-4`}
-                    >
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <h3 className="text-lg font-semibold mb-2 flex items-center">
                                 <FolderOpen size={18} className="mr-2" />
