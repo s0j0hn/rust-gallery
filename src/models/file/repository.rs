@@ -15,7 +15,7 @@ pub struct FileSchema {
     pub id: Option<i32>,
     pub path: String,
     pub hash: String,
-    pub extention: String,
+    pub extension: String,
     pub filename: String,
     pub folder_name: String,
     pub width: i32,
@@ -30,7 +30,7 @@ pub struct FileSchema {
 pub struct Image {
     pub path: String,
     pub hash: String,
-    pub extention: String,
+    pub extension: String,
     pub filename: String,
     pub folder_name: String,
     pub width: i32,
@@ -90,7 +90,8 @@ impl FileSchema {
     }
 
     pub async fn all_by_tag(conn: &DbConn, tag: String) -> QueryResult<Vec<FileSchema>> {
-        let search_pattern = format!("%{}%", tag);
+        // Use diesel's like method with proper parameter binding to prevent SQL injection
+        let search_pattern = format!("%{}%", tag.replace('%', "\\%").replace('_', "\\_"));
         conn.run(move |c| {
             files::table
                 .filter(files::tags.like(search_pattern))
@@ -117,7 +118,9 @@ impl FileSchema {
 
             // Apply filters based on parameters
             if tag != "*" {
-                query = query.filter(files::tags.like("%\"".to_owned() + &tag + "\"%"));
+                let safe_tag = tag.replace('%', "\\%").replace('_', "\\_");
+                let tag_pattern = format!("%\"{safe_tag}\"%");
+                query = query.filter(files::tags.like(tag_pattern));
             }
 
             if folder_name != "*" {
@@ -129,7 +132,7 @@ impl FileSchema {
             }
 
             if extension != "*" {
-                query = query.filter(files::extention.eq(extension))
+                query = query.filter(files::extension.eq(extension)) // Note: DB column still uses 'extention'
             }
 
             // Apply ordering and limit
@@ -166,8 +169,6 @@ impl FileSchema {
 
             random_equal_files.extend(files);
         }
-
-        println!("Files length: {}", random_equal_files.len());
 
         Ok(random_equal_files.into_iter().collect())
     }
@@ -355,7 +356,7 @@ impl FileSchema {
                 id: None,
                 path: image.path,
                 hash: image.hash,
-                extention: image.extention,
+                extension: image.extension,
                 filename: image.filename.to_lowercase(),
                 folder_name: image.folder_name.to_lowercase(),
                 width: image.width,
@@ -395,7 +396,7 @@ impl FileSchema {
                 id: None,
                 path: image.path,
                 hash: image.hash,
-                extention: image.extention,
+                extension: image.extension,
                 filename: image.filename.to_lowercase(),
                 folder_name: image.folder_name.to_lowercase(),
                 width: image.width,

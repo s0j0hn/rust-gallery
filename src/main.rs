@@ -18,14 +18,16 @@ extern crate rocket_sync_db_pools;
 
 // Core modules
 mod cache_files;
+mod constants;
+mod error;
 mod handlers;
 mod models;
-
 #[cfg(test)]
 mod tests;
 
 use moka::sync::Cache;
 // Import dependencies
+use crate::constants::{CACHE_TTL_1_DAY, CACHE_TTL_4_DAYS, MAX_CACHE_CAPACITY};
 use rocket::{
     Build, Rocket,
     fairing::AdHoc,
@@ -51,11 +53,10 @@ use crate::handlers::{
 // Application-specific imports
 use cache_files::{ImageCache, StateFiles};
 
-/// Database connection pool for Mysql
+/// Database connection pool for SQLite
 ///
 /// This connection pool is managed by Rocket and injected
 /// into route handlers that need database access.
-/// Database connection pool for SQLite
 #[database("sqlite_database")]
 pub struct DbConn(diesel::SqliteConnection);
 
@@ -127,10 +128,12 @@ fn rocket() -> _ {
     // Set up CORS
     let cors = configure_cors().expect("CORS configuration failed");
 
-    // Set up image cache with 4-day TTL (345600 seconds)
+    // Set up image cache with configurable limits and TTL
     let cache: ImageCache = Arc::new(
         Cache::builder()
-            .time_to_live(Duration::from_secs(345600))
+            .max_capacity(MAX_CACHE_CAPACITY)
+            .time_to_live(Duration::from_secs(CACHE_TTL_4_DAYS))
+            .time_to_idle(Duration::from_secs(CACHE_TTL_1_DAY))
             .build(),
     );
 

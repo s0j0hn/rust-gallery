@@ -1,15 +1,14 @@
 use crate::DbConn;
 use crate::cache_files::{CachedImage, ImageCache, StateFiles};
+use crate::error::{AppError, AppResult};
 use crate::handlers::files::utils::{
     create_cached_image, create_image_buffer, read_file_to_buffer,
 };
 use crate::models::file::repository::FileSchema;
+use rocket::State;
 use rocket::form::FromForm;
-use rocket::http::Status;
-use rocket::response::status;
 use rocket::serde::Serialize;
-use rocket::serde::json::{Json, Value, json};
-use rocket::{Either, State};
+use rocket::serde::json::Json;
 use std::path::Path;
 
 #[get("/<hash>/download?<width>&<height>")]
@@ -18,49 +17,37 @@ pub async fn retrieve_file(
     conn: DbConn,
     width: Option<usize>,
     height: Option<usize>,
-) -> Either<CachedImage, status::Custom<Json<Value>>> {
-    let f_schema = match FileSchema::get_by_hash(hash.to_string(), &conn).await {
-        Ok(schema) => schema,
-        Err(e) => {
-            return Either::Right(status::Custom(
-                Status::InternalServerError,
-                Json(json!({"error": format!("Database error: {}", e)})),
-            ));
-        }
-    };
+) -> AppResult<CachedImage> {
+    // Validate hash format - ensure it's alphanumeric and reasonable length
+    if !hash.chars().all(|c| c.is_alphanumeric()) || hash.len() < 8 || hash.len() > 128 {
+        return Err(AppError::bad_request("Invalid hash format"));
+    }
+
+    // Fetch from database with proper error handling
+    let f_schema = FileSchema::get_by_hash(hash.to_string(), &conn).await?;
+
+    // Check if file exists on disk
+    if !Path::new(&f_schema.path).exists() {
+        return Err(AppError::not_found("File"));
+    }
 
     // Check if resizing is needed
     if let (Some(image_width), Some(image_height)) = (width, height) {
         if image_width as i32 > f_schema.width || image_height as i32 > f_schema.height {
-            return match image::open(&f_schema.path) {
-                Ok(img) => {
-                    let resized_img = img.resize(
-                        image_width as u32,
-                        image_height as u32,
-                        image::imageops::FilterType::Lanczos3,
-                    );
-                    // For resized images
-                    let buffer = create_image_buffer(&f_schema, &resized_img);
-                    Either::Left(create_cached_image(buffer, &f_schema.extention, 86400)) // Cache for 1 day
-                }
-                Err(e) => {
-                    return Either::Right(status::Custom(
-                        Status::InternalServerError,
-                        Json(json!({"error": format!("Image processing error: {}", e)})),
-                    ));
-                }
-            };
+            let img = image::open(&f_schema.path)?;
+            let resized_img = img.resize(
+                image_width as u32,
+                image_height as u32,
+                image::imageops::FilterType::Lanczos3,
+            );
+            let buffer = create_image_buffer(&f_schema, &resized_img)?;
+            return Ok(create_cached_image(buffer, &f_schema.extension, 86400));
         }
     }
 
-    // Otherwise return the original file
-    match read_file_to_buffer(&f_schema.path) {
-        Ok(buffer) => Either::Left(create_cached_image(buffer, &f_schema.extention, 86400)), // Cache for 1 day,
-        Err(e) => Either::Right(status::Custom(
-            Status::InternalServerError,
-            Json(json!({"error": format!("File read error: {}", e)})),
-        )),
-    }
+    // Return the original file
+    let buffer = read_file_to_buffer(&f_schema.path)?;
+    Ok(create_cached_image(buffer, &f_schema.extension, 86400))
 }
 
 #[get("/thumbnail/folder/download?<folder>&<width>&<height>&<number>")]
@@ -71,17 +58,29 @@ pub async fn get_thumbnail_folder(
     width: Option<usize>,
     height: Option<usize>,
     cache: &State<ImageCache>,
-) -> Either<CachedImage, status::Custom<Json<Value>>> {
+) -> AppResult<CachedImage> {
+    // Validate folder name - prevent directory traversal and empty names
+    if folder.is_empty() || folder.len() > 255 {
+        return Err(AppError::bad_request("Invalid folder name"));
+    }
+
+    // Check for directory traversal attempts
+    if folder.contains("..") || folder.contains('/') || folder.contains('\\') {
+        return Err(AppError::bad_request(
+            "Invalid folder name: contains forbidden characters",
+        ));
+    }
+
     let cache_key = format!("thumb_{}_{}", folder, number.unwrap_or(1));
 
     // Return cached thumbnail if available
     if let Some(data) = cache.get(&cache_key) {
-        let extension = "jpg"; // Default extension
-        return Either::Left(create_cached_image(data, extension, 604800)); // Cache for 1 week
+        let extension = "jpg";
+        return Ok(create_cached_image(data, extension, 604800));
     }
 
     // Get random file from folder
-    let file_schema_vec = match FileSchema::random(
+    let file_schema_vec = FileSchema::random(
         &conn,
         folder.to_string(),
         1,
@@ -89,71 +88,37 @@ pub async fn get_thumbnail_folder(
         "*".to_string(),
         "*".to_string(),
     )
-    .await
-    {
-        Ok(schemas) => schemas,
-        Err(e) => {
-            return Either::Right(status::Custom(
-                Status::InternalServerError,
-                Json(json!({"error": format!("Database error: {}", e)})),
-            ));
-        }
-    };
+    .await?;
 
-    let f_schema = match file_schema_vec.first() {
-        Some(schema) => schema,
-        None => {
-            return Either::Right(status::Custom(
-                Status::NotFound,
-                Json(json!({"error": "No files found in folder"})),
-            ));
-        }
-    };
+    let f_schema = file_schema_vec
+        .first()
+        .ok_or_else(|| AppError::not_found("Files in folder"))?;
 
     let image_width = width.unwrap_or(150) as u32;
     let image_height = height.unwrap_or(150) as u32;
 
     // Check if file exists before attempting to open
     if !Path::new(&f_schema.path).exists() {
-        return Either::Right(status::Custom(
-            Status::NotFound,
-            Json(json!({"error": "File not found"})),
-        ));
+        return Err(AppError::not_found("File on disk"));
     }
 
     // Generate thumbnail
     if image_width as i32 <= f_schema.width || image_height as i32 <= f_schema.height {
-        match image::open(&f_schema.path) {
-            Ok(img) => {
-                let resized_img = img.resize(
-                    image_width,
-                    image_height,
-                    image::imageops::FilterType::Lanczos3,
-                );
+        let img = image::open(&f_schema.path)?;
+        let resized_img = img.resize(
+            image_width,
+            image_height,
+            image::imageops::FilterType::Lanczos3,
+        );
 
-                let buffer = create_image_buffer(f_schema, &resized_img);
-                cache.insert(cache_key, buffer.clone());
-                return Either::Left(create_cached_image(buffer, &f_schema.extention, 604800)); // Cache for 1 week
-            }
-            Err(err) => {
-                // Log the error but don't expose details to user
-                eprintln!("Image processing error for {}: {:?}", &f_schema.path, err);
-                return Either::Right(status::Custom(
-                    Status::InternalServerError,
-                    Json(json!({"error": format!("Failed to process image thumbnail: {}", err)})),
-                ));
-            }
-        }
+        let buffer = create_image_buffer(f_schema, &resized_img)?;
+        cache.insert(cache_key, buffer.clone());
+        return Ok(create_cached_image(buffer, &f_schema.extension, 604800));
     }
 
     // Return original file if no resizing needed
-    match read_file_to_buffer(&f_schema.path) {
-        Ok(buffer) => Either::Left(create_cached_image(buffer, &f_schema.extention, 604800)), // Cache for 1 week`
-        Err(_) => Either::Right(status::Custom(
-            Status::InternalServerError,
-            Json(json!({"error": "File not found or cannot be read"})),
-        )),
-    }
+    let buffer = read_file_to_buffer(&f_schema.path)?;
+    Ok(create_cached_image(buffer, &f_schema.extension, 604800))
 }
 
 #[get("/thumbnail/photo/download?<hash>&<width>&<height>")]
@@ -163,70 +128,48 @@ pub async fn get_thumbnail_photo(
     width: Option<usize>,
     height: Option<usize>,
     cache: &State<ImageCache>,
-) -> Either<CachedImage, status::Custom<Json<Value>>> {
-    let cache_key = format!("thumb_{}", hash);
+) -> AppResult<CachedImage> {
+    let cache_key = format!("thumb_{hash}");
+
+    // Validate hash format - ensure it's alphanumeric and reasonable length
+    if !hash.chars().all(|c| c.is_alphanumeric()) || hash.len() < 8 || hash.len() > 128 {
+        return Err(AppError::bad_request("Invalid hash format"));
+    }
 
     // Return cached thumbnail if available
     if let Some(data) = cache.get(&cache_key) {
-        let extension = "jpg"; // Default extension
-        return Either::Left(create_cached_image(data, extension, 604800)); // Cache for 1 week
+        let extension = "jpg";
+        return Ok(create_cached_image(data, extension, 604800));
     }
 
-    // Get random file from folder
-    let f_schema = match FileSchema::get_by_hash(hash.to_string(), &conn).await {
-        Ok(schemas) => schemas,
-        Err(e) => {
-            return Either::Right(status::Custom(
-                Status::InternalServerError,
-                Json(json!({"error": format!("Database error occurred {}", e)})),
-            ));
-        }
-    };
+    // Get file from database
+    let f_schema = FileSchema::get_by_hash(hash.to_string(), &conn).await?;
 
     let image_width = width.unwrap_or(150) as u32;
     let image_height = height.unwrap_or(150) as u32;
 
     // Check if file exists before attempting to open
     if !Path::new(&f_schema.path).exists() {
-        return Either::Right(status::Custom(
-            Status::NotFound,
-            Json(json!({"error": "File not found"})),
-        ));
+        return Err(AppError::not_found("File on disk"));
     }
 
     // Generate thumbnail
     if image_width as i32 <= f_schema.width || image_height as i32 <= f_schema.height {
-        match image::open(&f_schema.path) {
-            Ok(img) => {
-                let resized_img = img.resize(
-                    image_width,
-                    image_height,
-                    image::imageops::FilterType::Lanczos3,
-                );
+        let img = image::open(&f_schema.path)?;
+        let resized_img = img.resize(
+            image_width,
+            image_height,
+            image::imageops::FilterType::Lanczos3,
+        );
 
-                let buffer = create_image_buffer(&f_schema, &resized_img);
-                cache.insert(cache_key, buffer.clone());
-                return Either::Left(create_cached_image(buffer, &f_schema.extention, 604800)); // Cache for 1 week
-            }
-            Err(err) => {
-                // Log the error but don't expose details to user
-                eprintln!("Image processing error for {}: {:?}", &f_schema.path, err);
-                return Either::Right(status::Custom(
-                    Status::InternalServerError,
-                    Json(json!({"error": format!("Failed to process image thumbnail: {}", err)})),
-                ));
-            }
-        }
+        let buffer = create_image_buffer(&f_schema, &resized_img)?;
+        cache.insert(cache_key, buffer.clone());
+        return Ok(create_cached_image(buffer, &f_schema.extension, 604800));
     }
 
     // Return original file if no resizing needed
-    match read_file_to_buffer(&f_schema.path) {
-        Ok(buffer) => Either::Left(create_cached_image(buffer, &f_schema.extention, 604800)), // Cache for 1 week
-        Err(_) => Either::Right(status::Custom(
-            Status::InternalServerError,
-            Json(json!({"error": "File not found or cannot be read"})),
-        )),
-    }
+    let buffer = read_file_to_buffer(&f_schema.path)?;
+    Ok(create_cached_image(buffer, &f_schema.extension, 604800))
 }
 
 #[derive(Serialize)]
@@ -291,21 +234,26 @@ pub struct RandomQuery {
 }
 
 #[get("/random/json?<query..>", format = "json")]
-pub async fn random_json(conn: DbConn, query: RandomQuery) -> Json<JsonFileResponse> {
-    if query.equal {
-        match FileSchema::get_random_equal(
+pub async fn random_json(conn: DbConn, query: RandomQuery) -> AppResult<Json<JsonFileResponse>> {
+    // Validate query parameters
+    if query.size == 0 {
+        return Err(AppError::validation("Size must be greater than 0"));
+    }
+
+    if query.size > 1000 {
+        return Err(AppError::validation("Size cannot exceed 1000"));
+    }
+
+    let files = if query.equal {
+        FileSchema::get_random_equal(
             &conn,
             query.size as i64,
             query.root.to_string(),
             query.equal_size as i64,
         )
-        .await
-        {
-            Ok(files) => JsonFileResponse::with_files(files, 1, query.size),
-            Err(e) => JsonFileResponse::handle_error(e, 1),
-        }
+        .await?
     } else {
-        match FileSchema::random(
+        FileSchema::random(
             &conn,
             query.folder,
             query.size as i64,
@@ -313,12 +261,14 @@ pub async fn random_json(conn: DbConn, query: RandomQuery) -> Json<JsonFileRespo
             query.tag.to_string(),
             query.extension,
         )
-        .await
-        {
-            Ok(files) => JsonFileResponse::with_files(files, 1, query.size),
-            Err(e) => JsonFileResponse::handle_error(e, 1),
-        }
-    }
+        .await?
+    };
+
+    Ok(Json(JsonFileResponse {
+        items: files,
+        page: 1,
+        total: query.size,
+    }))
 }
 
 #[get("/json?<folder>&<page>&<per_page>", format = "json")]

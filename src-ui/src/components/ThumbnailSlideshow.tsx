@@ -16,9 +16,7 @@ const ThumbnailSlideshow: FC<ThumbnailSlideshowProps> = ({
     folderName,
 }) => {
     const [currentIndex, setCurrentIndex] = useState<number>(0)
-    const [loadedImages, setLoadedImages] = useState<Record<number, boolean>>(
-        {}
-    )
+    const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set())
     const [isTouching, setIsTouching] = useState<boolean>(false)
     const [touchStartX, setTouchStartX] = useState<number | null>(null)
 
@@ -54,8 +52,9 @@ const ThumbnailSlideshow: FC<ThumbnailSlideshowProps> = ({
 
     // Reset loaded state when thumbnails change
     useEffect(() => {
-        setLoadedImages({})
-    }, [])
+        setLoadedImages(new Set())
+        setCurrentIndex(0) // Reset to first image when thumbnails change
+    }, [thumbnails])
 
     // Set up interval for changing thumbnails when not being touched
     useEffect(() => {
@@ -68,68 +67,111 @@ const ThumbnailSlideshow: FC<ThumbnailSlideshowProps> = ({
         return () => clearInterval(interval)
     }, [thumbnails.length, isTouching])
 
-    // Preload the next few images when current index changes
+    // Preload adjacent images when current index changes
     useEffect(() => {
         if (thumbnails.length === 0) return
 
-        // Preload the next 2 images
-        const preloadNextImages = async () => {
+        const controller = new AbortController()
+
+        // Preload the next 2 images and previous 1 image
+        const preloadAdjacentImages = async () => {
             try {
+                const preloadPromises = []
+
+                // Preload next 2 images
                 for (let i = 1; i <= 2; i++) {
                     const nextIndex = (currentIndex + i) % thumbnails.length
-                    await preloadImage(thumbnails[nextIndex], folderName)
+                    if (!controller.signal.aborted) {
+                        preloadPromises.push(
+                            preloadImage(thumbnails[nextIndex], folderName)
+                        )
+                    }
                 }
+
+                // Preload previous image
+                const prevIndex =
+                    (currentIndex - 1 + thumbnails.length) % thumbnails.length
+                if (!controller.signal.aborted) {
+                    preloadPromises.push(
+                        preloadImage(thumbnails[prevIndex], folderName)
+                    )
+                }
+
+                await Promise.allSettled(preloadPromises)
             } catch (error) {
-                console.error('Error preloading images:', error)
+                if (!controller.signal.aborted) {
+                    console.error('Error preloading images:', error)
+                }
             }
         }
 
-        preloadNextImages()
+        preloadAdjacentImages()
+
+        // Cleanup function to abort pending preloads
+        return () => {
+            controller.abort()
+        }
     }, [currentIndex, thumbnails, folderName])
 
     // Handle image load events
-    const handleImageLoad = (index: number) => {
-        setLoadedImages((prev) => ({ ...prev, [index]: true }))
-    }
+    const handleImageLoad = useCallback((index: number) => {
+        setLoadedImages((prev) => {
+            const newSet = new Set(prev)
+            newSet.add(index)
+            return newSet
+        })
+    }, [])
 
     // Check if image is loaded
-    const isImageLoaded = (index: number) => !!loadedImages[index]
+    const isImageLoaded = useCallback(
+        (index: number) => loadedImages.has(index),
+        [loadedImages]
+    )
 
     // Swipe handling
-    const handleTouchStart = (e: React.TouchEvent) => {
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
         setIsTouching(true)
         setTouchStartX(e.touches[0].clientX)
-    }
+    }, [])
 
-    const handleTouchMove = (e: React.TouchEvent) => {
-        if (touchStartX === null) return
-    }
+    const handleTouchMove = useCallback(
+        (e: React.TouchEvent) => {
+            if (touchStartX === null) return
+            // Prevent default to avoid scrolling while swiping
+            e.preventDefault()
+        },
+        [touchStartX]
+    )
 
-    const handleTouchEnd = (e: React.TouchEvent) => {
-        if (touchStartX === null) {
-            setIsTouching(false)
-            return
-        }
-
-        const touchEndX = e.changedTouches[0].clientX
-        const diffX = touchStartX - touchEndX
-
-        // If swipe was significant enough
-        if (Math.abs(diffX) > 50) {
-            if (diffX > 0) {
-                // Swiped left - go to next
-                setCurrentIndex((prev) => (prev + 1) % thumbnails.length)
-            } else {
-                // Swiped right - go to previous
-                setCurrentIndex(
-                    (prev) => (prev - 1 + thumbnails.length) % thumbnails.length
-                )
+    const handleTouchEnd = useCallback(
+        (e: React.TouchEvent) => {
+            if (touchStartX === null) {
+                setIsTouching(false)
+                return
             }
-        }
 
-        setTouchStartX(null)
-        setIsTouching(false)
-    }
+            const touchEndX = e.changedTouches[0].clientX
+            const diffX = touchStartX - touchEndX
+
+            // If swipe was significant enough
+            if (Math.abs(diffX) > 50) {
+                if (diffX > 0) {
+                    // Swiped left - go to next
+                    setCurrentIndex((prev) => (prev + 1) % thumbnails.length)
+                } else {
+                    // Swiped right - go to previous
+                    setCurrentIndex(
+                        (prev) =>
+                            (prev - 1 + thumbnails.length) % thumbnails.length
+                    )
+                }
+            }
+
+            setTouchStartX(null)
+            setIsTouching(false)
+        },
+        [touchStartX, thumbnails.length]
+    )
 
     return (
         <div
@@ -153,6 +195,7 @@ const ThumbnailSlideshow: FC<ThumbnailSlideshowProps> = ({
                             index === currentIndex ? 'opacity-100' : 'opacity-0'
                         } ${isImageLoaded(index) ? 'block' : 'hidden'}`}
                         onLoad={() => handleImageLoad(index)}
+                        loading="lazy"
                     />
                 )
             })}

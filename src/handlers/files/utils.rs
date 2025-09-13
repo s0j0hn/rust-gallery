@@ -1,5 +1,6 @@
 use crate::DbConn;
 use crate::cache_files::CachedImage;
+use crate::error::AppError;
 use crate::models::file::repository::{FileSchema, Image};
 use image::{DynamicImage, ImageFormat, ImageReader};
 use rocket::http::ContentType;
@@ -69,7 +70,7 @@ pub async fn walk_directory(
     last_indexed: Option<u64>,
 ) {
     println!("************************");
-    println!("STARTED INDEXING {}...", dir_path);
+    println!("STARTED INDEXING {dir_path}...");
     println!("************************");
     let mut printed_dirs: HashSet<String> = HashSet::new();
     let mut set_all_file_schemas: HashSet<String> = HashSet::new();
@@ -164,7 +165,7 @@ pub async fn walk_directory(
                         root: dir_path.to_string(),
                         path: path.to_str().unwrap().to_string(),
                         hash: hash_value,
-                        extention: image_info.file_extension.to_lowercase(),
+                        extension: image_info.file_extension.to_lowercase(),
                         filename: image_info.file_name,
                         folder_name: trim_folder_name,
                         width: image_info.w as i32,
@@ -192,12 +193,12 @@ pub async fn walk_directory(
                 }
             }
             Err(err) => {
-                println!("Error: {}", err);
+                println!("Error: {err}");
             }
         }
     }
     println!("************************");
-    println!("DONE INDEXING {}", dir_path);
+    println!("DONE INDEXING {dir_path}");
     println!("************************");
 }
 
@@ -229,7 +230,7 @@ fn calculate_sha256(path: &Path) -> io::Result<String> {
     let mut hex_string = String::with_capacity(hash.len() * 2);
 
     hash.iter().fold(&mut hex_string, |string, byte| {
-        let _ = write!(string, "{:02x}", byte);
+        let _ = write!(string, "{byte:02x}");
         string
     });
 
@@ -267,26 +268,33 @@ pub fn create_cached_image(
     CachedImage::with_cache(data, content_type, cache_duration)
 }
 
-pub fn read_file_to_buffer(path: &str) -> std::io::Result<Vec<u8>> {
-    let mut file = File::open(path)?;
+pub fn read_file_to_buffer(path: &str) -> Result<Vec<u8>, AppError> {
+    let mut file = File::open(path).map_err(AppError::IoError)?;
     let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer)?;
+    file.read_to_end(&mut buffer).map_err(AppError::IoError)?;
     Ok(buffer)
 }
 
-pub fn create_image_buffer(f_schema: &FileSchema, image: &DynamicImage) -> Vec<u8> {
-    let format = match f_schema.extention.as_str() {
+pub fn create_image_buffer(
+    f_schema: &FileSchema,
+    image: &DynamicImage,
+) -> Result<Vec<u8>, AppError> {
+    let format = match f_schema.extension.as_str() {
         "png" => ImageFormat::Png,
         "jpg" | "jpeg" => ImageFormat::Jpeg,
         "gif" => ImageFormat::Gif,
         "webp" => ImageFormat::WebP,
-        _ => ImageFormat::Avif,
+        ext => {
+            return Err(AppError::bad_request(format!(
+                "Unsupported image format: {ext}"
+            )));
+        }
     };
 
     let mut buffer = Vec::new();
-    if let Err(e) = image.write_to(&mut Cursor::new(&mut buffer), format) {
-        eprintln!("Error encoding image: {:?}", e);
-        return Vec::new(); // Return empty buffer on error
-    }
-    buffer
+    image
+        .write_to(&mut Cursor::new(&mut buffer), format)
+        .map_err(AppError::ImageError)?;
+
+    Ok(buffer)
 }

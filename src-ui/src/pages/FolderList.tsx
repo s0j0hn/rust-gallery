@@ -2,13 +2,11 @@ import React, { useEffect, useState } from 'react' // Added useState import
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import MenuSection from '../components/MenuSection'
 import FolderCard from '../components/FolderCard'
-import MobileNavigation from '../components/MobileNavigation'
 import DeleteDialog from '../components/DeleteDialog'
 import TagDialog from '../components/TagDialog'
 import RandomPhotoView from '../components/RandomPhotoView'
 import { useFolders } from '../hooks/useFolders'
 import { useUI } from '../hooks/useUI'
-import useMobile from '../hooks/useMobile'
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
 
 const FolderList: React.FC = () => {
@@ -45,7 +43,6 @@ const FolderList: React.FC = () => {
     } = useUI()
 
     const navigate = useNavigate()
-    const isMobile = useMobile()
     const [searchParams, setSearchParams] = useSearchParams()
     const loadMoreRef = useInfiniteScroll({
         onLoadMore: loadMoreFolders,
@@ -129,7 +126,7 @@ const FolderList: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 mobile-safe-bottom">
+        <div className="min-h-screen bg-gray-100">
             <div className="container mx-auto p-4">
                 <h1 className="text-3xl font-bold mb-6">Gallery NAS</h1>
 
@@ -174,7 +171,7 @@ const FolderList: React.FC = () => {
                 {/* Folder Cards Grid */}
                 <div
                     className={`grid grid-cols-1 ${
-                        isMobile
+                        false
                             ? 'gap-4'
                             : 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2'
                     }`}
@@ -196,7 +193,7 @@ const FolderList: React.FC = () => {
                 {hasMore && (
                     <div
                         ref={loadMoreRef}
-                        className="flex justify-center items-center py-8 mb-16" // Added mb-16 for better mobile spacing
+                        className="flex justify-center items-center py-8 mb-16"
                     >
                         {loading && (
                             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -204,24 +201,6 @@ const FolderList: React.FC = () => {
                     </div>
                 )}
             </div>
-
-            {/* Mobile Navigation with fixed positioning and z-index */}
-            {isMobile && (
-                <div className="z-50 fixed bottom-0 left-0 right-0 bg-white shadow-t-lg">
-                    <MobileNavigation
-                        onHomeClick={() => {
-                            navigate('/')
-                            setSelectedRoot('')
-                            setSearchQuery('')
-                        }}
-                        onRootClick={() => setIsMenuOpen(true)} // Use React state instead of DOM manipulation
-                        onTagsClick={() => setIsMenuOpen(true)} // Use React state instead of DOM manipulation
-                        onIndexClick={startIndexation}
-                        onApiDocsClick={handleApiDocsClick}
-                        isIndexing={isIndexing}
-                    />
-                </div>
-            )}
 
             {/* Dialogs */}
             {tagDialogOpen && selectedFolder && (

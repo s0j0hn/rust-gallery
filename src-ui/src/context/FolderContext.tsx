@@ -19,7 +19,7 @@ interface FolderContextType {
     loading: boolean
     searchQuery: string
     selectedRoot: string | null
-    recentSearches: any
+    recentSearches: string[]
     setSearchQuery: (query: string) => void
     setSelectedRoot: (rootName: string) => void
     refreshFolders: () => Promise<void>
@@ -123,21 +123,7 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
         [selectedRoot, updateSearchParams, recentSearches]
     )
 
-    // Function to check indexation status
-    const checkIndexationStatus = useCallback(async () => {
-        try {
-            const data = await api.indexation.indexPhotos()
-            setIsIndexing(data.task_running)
-
-            if (!data.task_running && checkIntervalRef.current) {
-                clearInterval(checkIntervalRef.current)
-                checkIntervalRef.current = null
-                await refreshFolders()
-            }
-        } catch (err) {
-            console.error('Failed to check indexation status:', err)
-        }
-    }, [])
+    // checkIndexationStatus removed - inlined in startIndexation to avoid circular dependency
 
     // Clear interval on unmount
     useEffect(() => {
@@ -174,7 +160,7 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
                 setLoading(false)
             }
         },
-        []
+        [config.folders_per_page]
     )
 
     // Refresh folders (used for initial load or reset)
@@ -234,16 +220,18 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
 
         // Only update if values are different
         if (rootParam !== selectedRoot) {
-            setSelectedRoot(rootParam ? selectedRoot : 'files')
+            setSelectedRoot(rootParam || 'files')
         }
         if (searchParam !== searchQuery) {
             setSearchQuery(searchParam || '')
         }
+    }, [location.search]) // Remove refreshFolders from here to avoid loops
 
-        // Reset and refresh folders when search params change
+    // Separate effect for refreshing folders when params actually change
+    useEffect(() => {
         setPage(1)
         refreshFolders()
-    }, [location.search])
+    }, [selectedRoot, searchQuery, refreshFolders])
 
     // Fetch roots
     useEffect(() => {
@@ -276,39 +264,36 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
             try {
                 const result = await api.folders.updateTags(folderTitle, tags)
 
-                setFolders((prevFolders) =>
+                // Update both states in a single operation
+                const updateFunction = (prevFolders: Folder[]) =>
                     prevFolders.map((folder) =>
                         folder.title === folderTitle
                             ? { ...folder, tags: result }
                             : folder
                     )
-                )
-                setFilteredFolders((prevFolders) =>
-                    prevFolders.map((folder) =>
-                        folder.title === folderTitle
-                            ? { ...folder, tags: result }
-                            : folder
-                    )
-                )
+
+                setFolders(updateFunction)
+                setFilteredFolders(updateFunction)
             } catch (err) {
                 console.error('Failed to update tags:', err)
                 throw err
             }
         },
-        []
+        [refreshFolders]
     )
 
     // Delete folder
     const deleteFolder = useCallback(async (folderTitle: string) => {
         try {
             await api.folders.delete(folderTitle)
-            setFolders((prevFolders) =>
+
+            // Update both states in a single operation
+            const filterFunction = (prevFolders: Folder[]) =>
                 prevFolders.filter((folder) => folder.title !== folderTitle)
-            )
-            setFilteredFolders((prevFolders) =>
-                prevFolders.filter((folder) => folder.title !== folderTitle)
-            )
-            refreshFolders()
+
+            setFolders(filterFunction)
+            setFilteredFolders(filterFunction)
+            // Remove refreshFolders call to avoid unnecessary API call
         } catch (err) {
             console.error(`Failed to delete folder ${folderTitle}:`, err)
             throw err
@@ -328,10 +313,20 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
             const data = await api.indexation.indexPhotos()
             if (!data.task_running) {
                 // Set up interval to check status every 30 seconds
-                checkIntervalRef.current = setInterval(
-                    checkIndexationStatus,
-                    30000
-                )
+                checkIntervalRef.current = setInterval(async () => {
+                    try {
+                        const status = await api.indexation.indexPhotos()
+                        setIsIndexing(status.task_running)
+
+                        if (!status.task_running && checkIntervalRef.current) {
+                            clearInterval(checkIntervalRef.current)
+                            checkIntervalRef.current = null
+                            await refreshFolders()
+                        }
+                    } catch (err) {
+                        console.error('Failed to check indexation status:', err)
+                    }
+                }, 30000)
                 await refreshFolders()
             }
             await new Promise((r) => setTimeout(r, 2000))
@@ -340,7 +335,7 @@ export const FolderProvider: React.FC<{ children: ReactNode }> = ({
             setIsIndexing(false)
             throw err
         }
-    }, [refreshFolders, checkIndexationStatus])
+    }, [refreshFolders])
 
     // Cancel indexation
     const cancelIndexation = useCallback(async () => {

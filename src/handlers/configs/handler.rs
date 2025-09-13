@@ -1,4 +1,5 @@
 use crate::DbConn;
+use crate::error::{AppError, AppResult};
 use crate::models::config::repository::{ConfigInfo, ConfigSchema};
 use rocket::serde::json::{Json, Value, json};
 use rocket::serde::{Deserialize, Serialize};
@@ -22,41 +23,42 @@ pub struct JsonConfigDataResponse {
 }
 
 #[post("/", format = "json", data = "<data>")]
-pub async fn update_config(data: Json<ConfigData>, conn: DbConn) -> Value {
+pub async fn update_config(data: Json<ConfigData>, conn: DbConn) -> AppResult<Value> {
+    // Validate config data
+    if data.random_equal_folders <= 0 {
+        return Err(AppError::validation(
+            "random_equal_folders must be positive",
+        ));
+    }
+
+    if data.photo_per_random <= 0 {
+        return Err(AppError::validation("photo_per_random must be positive"));
+    }
+
+    if data.folders_per_page <= 0 {
+        return Err(AppError::validation("folders_per_page must be positive"));
+    }
+
     let c_data = ConfigInfo {
         random_equal_folders: data.random_equal_folders,
         photo_per_random: data.photo_per_random,
         folders_per_page: data.folders_per_page,
         equal_enabled: data.equal_enabled,
     };
-    match ConfigSchema::update(&conn, c_data.clone()).await {
-        Ok(_) => {
-            json!({ "status": "ok", "config": c_data })
-        }
-        Err(e) => {
-            error!("Updating config error: {e}");
-            json!({ "status": "error", "error": format!("{}", e) })
-        }
-    }
+
+    ConfigSchema::update(&conn, c_data.clone()).await?;
+
+    Ok(json!({ "status": "ok", "config": c_data }))
 }
 
 #[get("/")]
-pub async fn get_config(conn: DbConn) -> Json<JsonConfigDataResponse> {
-    match ConfigSchema::get_config(&conn).await {
-        Ok(config_data) => Json(JsonConfigDataResponse {
-            photo_per_random: config_data.photo_per_random,
-            folders_per_page: config_data.folders_per_page,
-            random_equal_folders: config_data.random_equal_folders,
-            equal_enabled: config_data.equal_enabled,
-        }),
-        Err(e) => {
-            error!("Getting config error: {e}");
-            Json(JsonConfigDataResponse {
-                photo_per_random: 300,
-                folders_per_page: 16,
-                random_equal_folders: 25,
-                equal_enabled: false,
-            })
-        }
-    }
+pub async fn get_config(conn: DbConn) -> AppResult<Json<JsonConfigDataResponse>> {
+    let config_data = ConfigSchema::get_config(&conn).await?;
+
+    Ok(Json(JsonConfigDataResponse {
+        photo_per_random: config_data.photo_per_random,
+        folders_per_page: config_data.folders_per_page,
+        random_equal_folders: config_data.random_equal_folders,
+        equal_enabled: config_data.equal_enabled,
+    }))
 }
