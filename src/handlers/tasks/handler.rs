@@ -1,3 +1,4 @@
+use crate::error::AppResult;
 use crate::handlers::files::utils::walk_directory;
 use crate::{AppConfig, DbConn};
 use rocket::futures::lock::Mutex;
@@ -72,7 +73,9 @@ pub struct JsonTaskCancelResponse {
 }
 
 #[get("/task/cancel")]
-pub async fn cancel_task(thread_manager: &State<ThreadManager>) -> Json<JsonTaskCancelResponse> {
+pub async fn cancel_task(
+    thread_manager: &State<ThreadManager>,
+) -> AppResult<Json<JsonTaskCancelResponse>> {
     let mut task_guard = thread_manager.task.lock().await;
 
     if task_guard.is_some() {
@@ -88,18 +91,18 @@ pub async fn cancel_task(thread_manager: &State<ThreadManager>) -> Json<JsonTask
         }
 
         // Return success JSON response
-        Json(JsonTaskCancelResponse {
+        Ok(Json(JsonTaskCancelResponse {
             status: "success".to_string(),
             message: "Indexation task has been canceled".to_string(),
             task_running: false,
-        })
+        }))
     } else {
         // No task was running
-        Json(JsonTaskCancelResponse {
+        Ok(Json(JsonTaskCancelResponse {
             status: "info".to_string(),
             message: "No indexation task was running".to_string(),
             task_running: false,
-        })
+        }))
     }
 }
 
@@ -118,12 +121,17 @@ pub async fn index_files(
     conn: DbConn,
     thread_manager: &State<ThreadManager>,
     force: Option<&str>,
-) -> Json<JsonTaskIndexResponse> {
-    let force_write = force
-        .unwrap_or("false")
-        .trim()
-        .parse::<bool>()
-        .unwrap_or(false);
+) -> AppResult<Json<JsonTaskIndexResponse>> {
+    let force_param = force.unwrap_or("false").trim();
+
+    // Validate force parameter
+    if !force_param.is_empty() && force_param != "true" && force_param != "false" {
+        return Err(crate::error::AppError::validation(
+            "Force parameter must be 'true' or 'false'",
+        ));
+    }
+
+    let force_write = force_param.parse::<bool>().unwrap_or(false);
 
     let mut task_guard = thread_manager.task.lock().await;
     let task_running = task_guard.is_some();
@@ -176,7 +184,7 @@ pub async fn index_files(
     let last_indexed_value = *thread_manager.last_indexed.lock().await;
 
     // Return JSON response with task status
-    Json(JsonTaskIndexResponse {
+    Ok(Json(JsonTaskIndexResponse {
         status: "success".to_string(),
         task_running,
         message: if task_running {
@@ -185,5 +193,5 @@ pub async fn index_files(
             "Started new indexation task".to_string()
         },
         last_indexed: last_indexed_value,
-    })
+    }))
 }

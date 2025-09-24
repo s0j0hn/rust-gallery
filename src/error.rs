@@ -4,6 +4,7 @@ use rocket::response::{self, Responder};
 use rocket::serde::Serialize;
 use rocket::serde::json::Json;
 use std::fmt;
+use tracing::{error, warn, info};
 
 #[derive(Debug)]
 pub enum AppError {
@@ -12,7 +13,9 @@ pub enum AppError {
     ImageError(image::ImageError),
     NotFound(String),
     BadRequest(String),
+    #[allow(dead_code)]
     InternalError(String),
+    #[allow(dead_code)]
     Unauthorized(String),
     ValidationError(String),
 }
@@ -44,16 +47,93 @@ impl fmt::Display for AppError {
 impl<'r> Responder<'r, 'static> for AppError {
     fn respond_to(self, req: &'r rocket::Request<'_>) -> response::Result<'static> {
         let (status, error_msg, show_details) = match &self {
-            AppError::NotFound(_) => (Status::NotFound, self.to_string(), true),
-            AppError::BadRequest(_) => (Status::BadRequest, self.to_string(), true),
-            AppError::Unauthorized(_) => (Status::Unauthorized, self.to_string(), true),
-            AppError::ValidationError(_) => (Status::UnprocessableEntity, self.to_string(), true),
-            AppError::DatabaseError(_)
-            | AppError::IoError(_)
-            | AppError::ImageError(_)
-            | AppError::InternalError(_) => {
-                // Log the actual error for debugging
-                error!("Internal error occurred: {}", self);
+            AppError::NotFound(_msg) => {
+                info!(
+                    error = %self,
+                    path = %req.uri().path(),
+                    method = %req.method(),
+                    "Resource not found"
+                );
+                (Status::NotFound, self.to_string(), true)
+            },
+            AppError::BadRequest(_msg) => {
+                warn!(
+                    error = %self,
+                    path = %req.uri().path(),
+                    method = %req.method(),
+                    ip = ?req.real_ip().or_else(|| req.client_ip()),
+                    "Bad request"
+                );
+                (Status::BadRequest, self.to_string(), true)
+            },
+            AppError::Unauthorized(_msg) => {
+                warn!(
+                    error = %self,
+                    path = %req.uri().path(),
+                    method = %req.method(),
+                    ip = ?req.real_ip().or_else(|| req.client_ip()),
+                    "Unauthorized access attempt"
+                );
+                (Status::Unauthorized, self.to_string(), true)
+            },
+            AppError::ValidationError(_msg) => {
+                info!(
+                    error = %self,
+                    path = %req.uri().path(),
+                    method = %req.method(),
+                    "Validation error"
+                );
+                (Status::UnprocessableEntity, self.to_string(), true)
+            },
+            AppError::DatabaseError(db_err) => {
+                error!(
+                    error = %self,
+                    db_error = %db_err,
+                    path = %req.uri().path(),
+                    method = %req.method(),
+                    "Database error occurred"
+                );
+                (
+                    Status::InternalServerError,
+                    "Internal server error".to_string(),
+                    false,
+                )
+            },
+            AppError::IoError(io_err) => {
+                error!(
+                    error = %self,
+                    io_error = %io_err,
+                    path = %req.uri().path(),
+                    method = %req.method(),
+                    "IO error occurred"
+                );
+                (
+                    Status::InternalServerError,
+                    "Internal server error".to_string(),
+                    false,
+                )
+            },
+            AppError::ImageError(img_err) => {
+                error!(
+                    error = %self,
+                    image_error = %img_err,
+                    path = %req.uri().path(),
+                    method = %req.method(),
+                    "Image processing error occurred"
+                );
+                (
+                    Status::InternalServerError,
+                    "Internal server error".to_string(),
+                    false,
+                )
+            },
+            AppError::InternalError(_msg) => {
+                error!(
+                    error = %self,
+                    path = %req.uri().path(),
+                    method = %req.method(),
+                    "Internal application error"
+                );
                 (
                     Status::InternalServerError,
                     "Internal server error".to_string(),
@@ -102,6 +182,30 @@ impl From<image::ImageError> for AppError {
     }
 }
 
+impl From<std::str::ParseBoolError> for AppError {
+    fn from(error: std::str::ParseBoolError) -> Self {
+        AppError::ValidationError(format!("Invalid boolean value: {}", error))
+    }
+}
+
+impl From<std::num::ParseIntError> for AppError {
+    fn from(error: std::num::ParseIntError) -> Self {
+        AppError::ValidationError(format!("Invalid integer value: {}", error))
+    }
+}
+
+impl From<std::str::Utf8Error> for AppError {
+    fn from(error: std::str::Utf8Error) -> Self {
+        AppError::ValidationError(format!("Invalid UTF-8 string: {}", error))
+    }
+}
+
+impl From<std::string::FromUtf8Error> for AppError {
+    fn from(error: std::string::FromUtf8Error) -> Self {
+        AppError::ValidationError(format!("Invalid UTF-8 string: {}", error))
+    }
+}
+
 // Helper type alias
 pub type AppResult<T> = Result<T, AppError>;
 
@@ -115,6 +219,7 @@ impl AppError {
         AppError::BadRequest(message.into())
     }
 
+    #[allow(dead_code)]
     pub fn internal(message: impl Into<String>) -> Self {
         AppError::InternalError(message.into())
     }

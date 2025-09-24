@@ -1,4 +1,5 @@
 use crate::DbConn;
+use crate::constants::*;
 use crate::error::{AppError, AppResult};
 use crate::models::file::repository::FileSchema;
 use rocket::serde::json::{Json, Value, json};
@@ -96,16 +97,19 @@ pub async fn get_folders_json(
     page: Option<usize>,
     per_page: Option<usize>,
 ) -> AppResult<Json<Vec<JsonFolderResponse>>> {
-    let current_page = page.unwrap_or(1);
-    let items_per_page = per_page.unwrap_or(25);
+    let current_page = page.unwrap_or(DEFAULT_PAGE);
+    let items_per_page = per_page.unwrap_or(DEFAULT_ITEMS_PER_PAGE);
 
     // Validate pagination
     if current_page == 0 {
         return Err(AppError::validation("Page must be greater than 0"));
     }
 
-    if items_per_page > 100 {
-        return Err(AppError::validation("Items per page cannot exceed 100"));
+    if items_per_page > MAX_ITEMS_PER_PAGE {
+        return Err(AppError::validation(&format!(
+            "Items per page cannot exceed {}",
+            MAX_ITEMS_PER_PAGE
+        )));
     }
 
     let offset = (current_page - 1) * items_per_page;
@@ -139,48 +143,57 @@ pub async fn get_folders_json(
 }
 
 #[get("/roots")]
-pub async fn get_roots_json(conn: DbConn) -> Json<Vec<JsonRootResponse>> {
-    match FileSchema::get_folders_roots(&conn).await {
-        Ok(roots) => {
-            // Map folders to response objects with tags
-            let response: Vec<JsonRootResponse> = roots
-                .into_iter()
-                .map(|r| JsonRootResponse {
-                    root: r.root,
-                    photo_count: r.count as usize,
-                    folder_count: r.f_count as usize,
-                })
-                .collect();
-            Json(response)
-        }
-        Err(e) => {
-            error!("Error retrieving roots: {e}");
-            Json(Vec::new()) // Return empty array on error
-        }
-    }
+pub async fn get_roots_json(conn: DbConn) -> AppResult<Json<Vec<JsonRootResponse>>> {
+    let roots = FileSchema::get_folders_roots(&conn).await?;
+
+    // Map folders to response objects
+    let response: Vec<JsonRootResponse> = roots
+        .into_iter()
+        .map(|r| JsonRootResponse {
+            root: r.root,
+            photo_count: r.count as usize,
+            folder_count: r.f_count as usize,
+        })
+        .collect();
+
+    Ok(Json(response))
 }
 
 #[get("/json/name/<name>")]
-pub async fn get_folder_by_name(conn: DbConn, name: &str) -> Json<Vec<JsonFolderResponse>> {
-    match FileSchema::get_folder_by_name(&conn, name.to_string()).await {
-        Ok(folders) => {
-            // Map folders to response objects with tags
-            let response: Vec<JsonFolderResponse> = folders
-                .into_iter()
-                .map(|f| JsonFolderResponse {
-                    title: f.folder_name.clone(),
-                    photo_count: f.count as usize,
-                    tags: vec![],
-                    root: f.root,
-                })
-                .collect();
-            Json(response)
-        }
-        Err(e) => {
-            error!("Error retrieving folders: {e}");
-            Json(Vec::new()) // Return empty array on error
-        }
+pub async fn get_folder_by_name(
+    conn: DbConn,
+    name: &str,
+) -> AppResult<Json<Vec<JsonFolderResponse>>> {
+    // Validate name parameter
+    if name.is_empty() {
+        return Err(AppError::validation("Folder name cannot be empty"));
     }
+
+    if name.len() > MAX_FOLDER_NAME_LENGTH {
+        return Err(AppError::validation("Folder name too long"));
+    }
+
+    // Check for directory traversal attempts
+    if name.contains("..") || name.contains('/') || name.contains('\\') {
+        return Err(AppError::bad_request(
+            "Invalid folder name: contains forbidden characters",
+        ));
+    }
+
+    let folders = FileSchema::get_folder_by_name(&conn, name.to_string()).await?;
+
+    // Map folders to response objects
+    let response: Vec<JsonFolderResponse> = folders
+        .into_iter()
+        .map(|f| JsonFolderResponse {
+            title: f.folder_name.clone(),
+            photo_count: f.count as usize,
+            tags: vec![],
+            root: f.root,
+        })
+        .collect();
+
+    Ok(Json(response))
 }
 
 // Helper function to format search pattern safely
