@@ -1,17 +1,21 @@
 use crate::DbConn;
 use crate::cache_files::{CachedImage, ImageCache, StateFiles};
+use crate::constants::*;
 use crate::error::{AppError, AppResult};
 use crate::handlers::files::utils::{
     create_cached_image, create_image_buffer, read_file_to_buffer,
 };
+use crate::logging::cache_logging;
 use crate::models::file::repository::FileSchema;
 use rocket::State;
 use rocket::form::FromForm;
 use rocket::serde::Serialize;
 use rocket::serde::json::Json;
 use std::path::Path;
+use tracing::{debug, info, instrument, warn};
 
 #[get("/<hash>/download?<width>&<height>")]
+#[instrument(skip(conn), fields(hash = %hash, width = ?width, height = ?height))]
 pub async fn retrieve_file(
     hash: &str,
     conn: DbConn,
@@ -19,30 +23,43 @@ pub async fn retrieve_file(
     height: Option<usize>,
 ) -> AppResult<CachedImage> {
     // Validate hash format - ensure it's alphanumeric and reasonable length
-    if !hash.chars().all(|c| c.is_alphanumeric()) || hash.len() < 8 || hash.len() > 128 {
+    if !hash.chars().all(|c| c.is_alphanumeric())
+        || hash.len() < MIN_HASH_LENGTH
+        || hash.len() > MAX_HASH_LENGTH
+    {
+        warn!(hash = %hash, "Invalid hash format provided");
         return Err(AppError::bad_request("Invalid hash format"));
     }
 
+    debug!("Fetching file metadata from database");
     // Fetch from database with proper error handling
     let f_schema = FileSchema::get_by_hash(hash.to_string(), &conn).await?;
 
     // Check if file exists on disk
     if !Path::new(&f_schema.path).exists() {
+        warn!(path = %f_schema.path, hash = %hash, "File not found on disk");
         return Err(AppError::not_found("File"));
     }
 
+    info!(
+        file_name = %f_schema.filename,
+        file_path = %f_schema.path,
+        original_size = %format!("{}x{}", f_schema.width, f_schema.height),
+        "File located, processing request"
+    );
+
     // Check if resizing is needed
-    if let (Some(image_width), Some(image_height)) = (width, height) {
-        if image_width as i32 > f_schema.width || image_height as i32 > f_schema.height {
-            let img = image::open(&f_schema.path)?;
-            let resized_img = img.resize(
-                image_width as u32,
-                image_height as u32,
-                image::imageops::FilterType::Lanczos3,
-            );
-            let buffer = create_image_buffer(&f_schema, &resized_img)?;
-            return Ok(create_cached_image(buffer, &f_schema.extension, 86400));
-        }
+    if let (Some(image_width), Some(image_height)) = (width, height)
+        && (image_width as i32 > f_schema.width || image_height as i32 > f_schema.height)
+    {
+        let img = image::open(&f_schema.path)?;
+        let resized_img = img.resize(
+            image_width as u32,
+            image_height as u32,
+            image::imageops::FilterType::Lanczos3,
+        );
+        let buffer = create_image_buffer(&f_schema, &resized_img)?;
+        return Ok(create_cached_image(buffer, &f_schema.extension, 86400));
     }
 
     // Return the original file
@@ -60,7 +77,7 @@ pub async fn get_thumbnail_folder(
     cache: &State<ImageCache>,
 ) -> AppResult<CachedImage> {
     // Validate folder name - prevent directory traversal and empty names
-    if folder.is_empty() || folder.len() > 255 {
+    if folder.is_empty() || folder.len() > MAX_FOLDER_NAME_LENGTH {
         return Err(AppError::bad_request("Invalid folder name"));
     }
 
@@ -75,9 +92,11 @@ pub async fn get_thumbnail_folder(
 
     // Return cached thumbnail if available
     if let Some(data) = cache.get(&cache_key) {
+        cache_logging::log_cache_hit(&cache_key, "thumbnail_folder");
         let extension = "jpg";
         return Ok(create_cached_image(data, extension, 604800));
     }
+    cache_logging::log_cache_miss(&cache_key, "thumbnail_folder");
 
     // Get random file from folder
     let file_schema_vec = FileSchema::random(
@@ -94,8 +113,8 @@ pub async fn get_thumbnail_folder(
         .first()
         .ok_or_else(|| AppError::not_found("Files in folder"))?;
 
-    let image_width = width.unwrap_or(150) as u32;
-    let image_height = height.unwrap_or(150) as u32;
+    let image_width = width.unwrap_or(DEFAULT_THUMBNAIL_WIDTH as usize) as u32;
+    let image_height = height.unwrap_or(DEFAULT_THUMBNAIL_HEIGHT as usize) as u32;
 
     // Check if file exists before attempting to open
     if !Path::new(&f_schema.path).exists() {
@@ -112,6 +131,7 @@ pub async fn get_thumbnail_folder(
         );
 
         let buffer = create_image_buffer(f_schema, &resized_img)?;
+        cache_logging::log_cache_set(&cache_key, "thumbnail_folder", Some(604800));
         cache.insert(cache_key, buffer.clone());
         return Ok(create_cached_image(buffer, &f_schema.extension, 604800));
     }
@@ -132,21 +152,26 @@ pub async fn get_thumbnail_photo(
     let cache_key = format!("thumb_{hash}");
 
     // Validate hash format - ensure it's alphanumeric and reasonable length
-    if !hash.chars().all(|c| c.is_alphanumeric()) || hash.len() < 8 || hash.len() > 128 {
+    if !hash.chars().all(|c| c.is_alphanumeric())
+        || hash.len() < MIN_HASH_LENGTH
+        || hash.len() > MAX_HASH_LENGTH
+    {
         return Err(AppError::bad_request("Invalid hash format"));
     }
 
     // Return cached thumbnail if available
     if let Some(data) = cache.get(&cache_key) {
+        cache_logging::log_cache_hit(&cache_key, "thumbnail_photo");
         let extension = "jpg";
         return Ok(create_cached_image(data, extension, 604800));
     }
+    cache_logging::log_cache_miss(&cache_key, "thumbnail_photo");
 
     // Get file from database
     let f_schema = FileSchema::get_by_hash(hash.to_string(), &conn).await?;
 
-    let image_width = width.unwrap_or(150) as u32;
-    let image_height = height.unwrap_or(150) as u32;
+    let image_width = width.unwrap_or(DEFAULT_THUMBNAIL_WIDTH as usize) as u32;
+    let image_height = height.unwrap_or(DEFAULT_THUMBNAIL_HEIGHT as usize) as u32;
 
     // Check if file exists before attempting to open
     if !Path::new(&f_schema.path).exists() {
@@ -163,6 +188,7 @@ pub async fn get_thumbnail_photo(
         );
 
         let buffer = create_image_buffer(&f_schema, &resized_img)?;
+        cache_logging::log_cache_set(&cache_key, "thumbnail_photo", Some(604800));
         cache.insert(cache_key, buffer.clone());
         return Ok(create_cached_image(buffer, &f_schema.extension, 604800));
     }
@@ -180,12 +206,6 @@ pub struct JsonFileResponse {
     total: usize,
 }
 
-#[derive(Serialize)]
-#[serde(crate = "rocket::serde")]
-pub struct JsonFileTagsResponse {
-    tags: Vec<String>,
-}
-
 impl JsonFileResponse {
     // Helper method to create a response with files
     fn with_files(files: Vec<FileSchema>, page: usize, total: usize) -> Json<Self> {
@@ -195,29 +215,11 @@ impl JsonFileResponse {
             total,
         })
     }
-
-    // Helper method to create an empty response
-    fn empty(page: usize) -> Json<Self> {
-        Json(Self {
-            items: vec![],
-            page,
-            total: 0,
-        })
-    }
-
-    // Helper method to handle database errors
-    fn handle_error<T>(error: T, page: usize) -> Json<Self>
-    where
-        T: std::fmt::Display,
-    {
-        error!("Database error: {}", error);
-        Self::empty(page)
-    }
 }
 
 #[derive(FromForm)]
 pub struct RandomQuery {
-    #[field(default = 10)]
+    #[field(default = DEFAULT_RANDOM_SIZE)]
     pub size: usize,
     #[field(default = "*")]
     pub folder: String,
@@ -225,7 +227,7 @@ pub struct RandomQuery {
     pub tag: String,
     #[field(default = false)]
     pub equal: bool,
-    #[field(default = 50)]
+    #[field(default = DEFAULT_EQUAL_SIZE)]
     pub equal_size: usize,
     #[field(default = "*")]
     pub root: String,
@@ -240,8 +242,11 @@ pub async fn random_json(conn: DbConn, query: RandomQuery) -> AppResult<Json<Jso
         return Err(AppError::validation("Size must be greater than 0"));
     }
 
-    if query.size > 1000 {
-        return Err(AppError::validation("Size cannot exceed 1000"));
+    if query.size > MAX_PAGINATION_SIZE {
+        return Err(AppError::validation(format!(
+            "Size cannot exceed {}",
+            MAX_PAGINATION_SIZE
+        )));
     }
 
     let files = if query.equal {
@@ -266,7 +271,7 @@ pub async fn random_json(conn: DbConn, query: RandomQuery) -> AppResult<Json<Jso
 
     Ok(Json(JsonFileResponse {
         items: files,
-        page: 1,
+        page: DEFAULT_PAGE,
         total: query.size,
     }))
 }
@@ -278,44 +283,60 @@ pub async fn get_all_files_json(
     per_page: Option<usize>,
     folder: Option<&str>,
     state_files: &State<StateFiles>,
-) -> Json<JsonFileResponse> {
-    let current_page = page.unwrap_or(1);
-    let items_per_page = per_page.unwrap_or(25);
+) -> AppResult<Json<JsonFileResponse>> {
+    let current_page = page.unwrap_or(DEFAULT_PAGE);
+    let items_per_page = per_page.unwrap_or(DEFAULT_ITEMS_PER_PAGE);
     let folder_filter = folder.unwrap_or("*");
+
+    // Validate pagination parameters
+    if current_page == 0 {
+        return Err(AppError::validation("Page must be greater than 0"));
+    }
+
+    if items_per_page > MAX_ITEMS_PER_PAGE {
+        return Err(AppError::validation(format!(
+            "Items per page cannot exceed {}",
+            MAX_ITEMS_PER_PAGE
+        )));
+    }
+
+    // Validate folder parameter
+    if let Some(folder_param) = folder
+        && folder_param.len() > MAX_FOLDER_NAME_LENGTH
+    {
+        return Err(AppError::validation("Folder name too long"));
+    }
 
     let mut lock = state_files.files.lock().await;
 
-    if let Some(folder_files) = lock.get(folder_filter) {
-        if !folder_files.is_empty() {
-            return JsonFileResponse::with_files(
-                folder_files.clone(),
-                current_page,
-                folder_files.len(),
-            );
-        }
+    if let Some(folder_files) = lock.get(folder_filter)
+        && !folder_files.is_empty()
+    {
+        return Ok(JsonFileResponse::with_files(
+            folder_files.clone(),
+            current_page,
+            folder_files.len(),
+        ));
     }
 
-    // Calculate offset (avoid underflow by checking page > 0)
-    let offset = if current_page > 0 {
-        (current_page - 1) * items_per_page
-    } else {
-        0
-    };
+    // Calculate offset
+    let offset = (current_page - 1) * items_per_page;
 
-    match FileSchema::all_paged(
+    let files = FileSchema::all_paged(
         &conn,
         items_per_page as i64,
         offset as i64,
         folder_filter.to_string(),
     )
-    .await
-    {
-        Ok(files) => {
-            lock.entry(folder_filter.to_string())
-                .or_insert_with(Vec::new)
-                .extend(files.clone());
-            JsonFileResponse::with_files(files.clone(), current_page, files.len())
-        }
-        Err(e) => JsonFileResponse::handle_error(e, current_page),
-    }
+    .await?;
+
+    lock.entry(folder_filter.to_string())
+        .or_insert_with(Vec::new)
+        .extend(files.clone());
+
+    Ok(JsonFileResponse::with_files(
+        files.clone(),
+        current_page,
+        files.len(),
+    ))
 }

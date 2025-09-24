@@ -3,6 +3,7 @@
 // Cache durations (in seconds)
 pub const CACHE_TTL_1_DAY: u64 = 86400;
 pub const CACHE_TTL_4_DAYS: u64 = 345600;
+#[allow(dead_code)]
 pub const CACHE_TTL_1_WEEK: u64 = 604800;
 
 // Image processing defaults
@@ -14,7 +15,7 @@ pub const MIN_HASH_LENGTH: usize = 8;
 pub const MAX_HASH_LENGTH: usize = 128;
 pub const MAX_FOLDER_NAME_LENGTH: usize = 255;
 pub const MAX_PAGINATION_SIZE: usize = 1000;
-pub const MAX_ITEMS_PER_PAGE: usize = 100;
+pub const MAX_ITEMS_PER_PAGE: usize = 1000;
 pub const DEFAULT_ITEMS_PER_PAGE: usize = 25;
 pub const MAX_CACHE_CAPACITY: u64 = 10_000;
 

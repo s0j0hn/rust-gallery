@@ -54,13 +54,6 @@ pub struct FolderRootsInfo {
     pub f_count: i64,
 }
 
-#[derive(Queryable, Serialize)]
-#[serde(crate = "rocket::serde")]
-pub struct FileUpdateTags {
-    pub hash: String,
-    pub tags: Option<String>,
-}
-
 // Represents the SQL RANDOM() function
 define_sql_function!(fn random() -> sql_types::Integer);
 

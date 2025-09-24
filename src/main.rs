@@ -21,6 +21,8 @@ mod cache_files;
 mod constants;
 mod error;
 mod handlers;
+mod logging;
+mod middleware;
 mod models;
 #[cfg(test)]
 mod tests;
@@ -36,6 +38,7 @@ use rocket::{
 };
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions, Error};
 use std::{collections::HashMap, sync::Arc, time::Duration};
+use tracing::{error, info};
 
 use crate::handlers::configs::handler::get_config;
 use crate::handlers::{
@@ -52,6 +55,7 @@ use crate::handlers::{
 };
 // Application-specific imports
 use cache_files::{ImageCache, StateFiles};
+use middleware::{PerformanceMonitor, RequestLogger, SecurityLogger};
 
 /// Database connection pool for SQLite
 ///
@@ -66,6 +70,9 @@ pub struct DbConn(diesel::SqliteConnection);
 struct AppConfig {
     /// Directories containing images to be displayed in the gallery
     images_dirs: Vec<String>,
+    /// Logging configuration (optional)
+    #[serde(default)]
+    app_log_level: Option<String>,
 }
 
 /// Runs database migrations on application startup to ensure
@@ -112,6 +119,36 @@ fn configure_cors() -> Result<rocket_cors::Cors, Error> {
     .to_cors()
 }
 
+/// Initialize logging system for console output only
+async fn init_logging_system(rocket: Rocket<Build>) -> Rocket<Build> {
+    // Get configuration from Rocket
+    let config = rocket
+        .figment()
+        .extract::<AppConfig>()
+        .unwrap_or_else(|_| AppConfig {
+            images_dirs: vec!["images".to_string()],
+            app_log_level: Some("info".to_string()),
+        });
+
+    // Create logging configuration (console only)
+    let log_config = logging::LogConfig {
+        log_level: config.app_log_level.unwrap_or_else(|| "info".to_string()),
+        structured_logs: false,
+        include_span_events: true,
+    };
+
+    // Initialize logging
+    if let Err(e) = logging::init_logging(log_config) {
+        eprintln!("Failed to initialize logging: {}", e);
+        std::process::exit(1);
+    }
+
+    info!("Rust Gallery application starting up");
+    info!("Image directories configured: {:?}", config.images_dirs);
+
+    rocket
+}
+
 /// Main application entrypoint
 ///
 /// Sets up the Rocket web server with:
@@ -141,6 +178,8 @@ fn rocket() -> _ {
     let thread_manager = ThreadManager::new();
 
     rocket::build()
+        // Initialize logging first (before anything else)
+        .attach(AdHoc::on_ignite("Initialize Logging", init_logging_system))
         // Register application state
         .manage(StateFiles {
             files: HashMap::new().into(),
@@ -152,6 +191,10 @@ fn rocket() -> _ {
         .attach(AdHoc::config::<AppConfig>())
         .attach(DbConn::fairing())
         .attach(AdHoc::on_ignite("Run Migrations", run_migrations))
+        // Attach logging middleware
+        .attach(RequestLogger)
+        .attach(SecurityLogger)
+        .attach(PerformanceMonitor)
         // Mount static file server
         .mount(
             "/",

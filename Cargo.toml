@@ -1,6 +1,6 @@
 [package]
 name = "rusty-images"
-version = "0.6.0"
+version = "0.6.1"
 edition = "2024"
 
 [profile.release]
@@ -10,13 +10,18 @@ debug = "none"
 [dependencies]
 rocket = { version = "0.5.1", features = ["json", "serde_json", "http2"] }
 rocket_cors = "0.6"
-diesel = { version = "2.2.10", features = ["r2d2", "serde_json", "sqlite", "returning_clauses_for_sqlite_3_35"] }
-diesel_migrations = {version = "2.2"}
+diesel = { version = "2.3", features = ["r2d2", "serde_json", "sqlite", "returning_clauses_for_sqlite_3_35"] }
+diesel_migrations = {version = "2.3"}
 walkdir = "2.5.0"
 sha2 = "0.10.9"
-image = "0.25.6"
+image = "0.25.8"
 moka = { version = "0.12.10", features = ["sync"] }
-chrono = "0.4.41"
+chrono = "0.4.42"
+
+# Logging dependencies
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "registry", "std", "time"] }
+serde = { version = "1.0", features = ["derive"] }
 
 [dependencies.rocket_sync_db_pools]
 version = "0.1.0"

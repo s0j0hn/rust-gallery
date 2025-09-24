@@ -36,6 +36,44 @@
         "tags": [
           "config"
         ]
+      },
+      "post": {
+        "summary": "Update config information",
+        "description": "Updates application configuration",
+        "operationId": "updateConfig",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigData"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Config updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "config": {
+                      "$ref": "#/components/schemas/Config"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "config"
+        ]
       }
     },
     "/folders/roots": {
@@ -175,13 +213,13 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "data": {
+                  "folder_name": {
                     "type": "string",
                     "description": "Name of the folder to delete"
                   }
                 },
                 "required": [
-                  "data"
+                  "folder_name"
                 ]
               }
             }
@@ -337,7 +375,12 @@
             "in": "query",
             "description": "Extension file",
             "schema": {
-              "enum": ["JPG", "PNG", "GIF", "WEBP"]
+              "enum": [
+                "JPG",
+                "PNG",
+                "GIF",
+                "WEBP"
+              ]
             }
           },
           {
@@ -381,15 +424,6 @@
             "schema": {
               "type": "integer",
               "default": 10
-            }
-          },
-          {
-            "name": "size",
-            "in": "query",
-            "description": "Random Size",
-            "schema": {
-              "type": "integer",
-              "default": 100
             }
           }
         ],
@@ -523,13 +557,170 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "indexed": {
-                      "type": "integer",
-                      "description": "Number of indexed photos"
-                    }
-                  }
+                  "$ref": "#/components/schemas/TaskIndexResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files/{hash}/download": {
+      "get": {
+        "tags": [
+          "files"
+        ],
+        "summary": "Download or retrieve a file",
+        "description": "Returns a file by its hash, with optional resizing",
+        "operationId": "retrieveFile",
+        "parameters": [
+          {
+            "name": "hash",
+            "in": "path",
+            "required": true,
+            "description": "Hash of the file to retrieve",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "description": "Desired width for resizing",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "height",
+            "in": "query",
+            "description": "Desired height for resizing",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File content",
+            "content": {
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files/thumbnail/folder/download": {
+      "get": {
+        "tags": [
+          "files"
+        ],
+        "summary": "Get folder thumbnail",
+        "description": "Returns a thumbnail image for a folder",
+        "operationId": "getFolderThumbnail",
+        "parameters": [
+          {
+            "name": "folder",
+            "in": "query",
+            "required": true,
+            "description": "Name of the folder",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "description": "Thumbnail width",
+            "schema": {
+              "type": "integer",
+              "default": 300
+            }
+          },
+          {
+            "name": "height",
+            "in": "query",
+            "description": "Thumbnail height",
+            "schema": {
+              "type": "integer",
+              "default": 300
+            }
+          },
+          {
+            "name": "number",
+            "in": "query",
+            "description": "Thumbnail number/index",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thumbnail image",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files/thumbnail/photo/download": {
+      "get": {
+        "tags": [
+          "files"
+        ],
+        "summary": "Get photo thumbnail",
+        "description": "Returns a thumbnail image for a specific photo",
+        "operationId": "getPhotoThumbnail",
+        "parameters": [
+          {
+            "name": "hash",
+            "in": "query",
+            "required": true,
+            "description": "Hash of the photo",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "description": "Thumbnail width",
+            "schema": {
+              "type": "integer",
+              "default": 300
+            }
+          },
+          {
+            "name": "height",
+            "in": "query",
+            "description": "Thumbnail height",
+            "schema": {
+              "type": "integer",
+              "default": 300
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thumbnail image",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
                 }
               }
             }
@@ -551,21 +742,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "task_running": {
-                      "type": "boolean",
-                      "description": "Indicates if a task was running"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Status message"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Current status of the task"
-                    }
-                  }
+                  "$ref": "#/components/schemas/TaskCancelResponse"
                 }
               }
             }
@@ -591,6 +768,10 @@
           "folders_per_page": {
             "type": "integer",
             "description": "Number of folders per page"
+          },
+          "equal_enabled": {
+            "type": "boolean",
+            "description": "Whether equal folder distribution is enabled"
           }
         }
       },
@@ -754,6 +935,76 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "ConfigData": {
+        "type": "object",
+        "description": "Configuration data for updating server settings",
+        "properties": {
+          "random_equal_folders": {
+            "type": "integer",
+            "description": "Number of equal photo per folder"
+          },
+          "photo_per_random": {
+            "type": "integer",
+            "description": "Number of photos per random session"
+          },
+          "folders_per_page": {
+            "type": "integer",
+            "description": "Number of folders per page"
+          },
+          "equal_enabled": {
+            "type": "boolean",
+            "description": "Whether equal folder distribution is enabled"
+          }
+        },
+        "required": [
+          "random_equal_folders",
+          "photo_per_random",
+          "folders_per_page",
+          "equal_enabled"
+        ]
+      },
+      "TaskIndexResponse": {
+        "type": "object",
+        "description": "Response for indexing task operations",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Status of the operation"
+          },
+          "task_running": {
+            "type": "boolean",
+            "description": "Whether a task is currently running"
+          },
+          "message": {
+            "type": "string",
+            "description": "Status message"
+          },
+          "last_indexed": {
+            "type": "integer",
+            "description": "Timestamp of last indexation",
+            "format": "int64",
+            "nullable": true
+          }
+        }
+      },
+      "TaskCancelResponse": {
+        "type": "object",
+        "description": "Response for task cancellation",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Status of the cancellation"
+          },
+          "message": {
+            "type": "string",
+            "description": "Status message"
+          },
+          "task_running": {
+            "type": "boolean",
+            "description": "Whether a task was running"
           }
         }
       }

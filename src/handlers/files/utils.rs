@@ -1,6 +1,8 @@
 use crate::DbConn;
 use crate::cache_files::CachedImage;
+use crate::constants::*;
 use crate::error::AppError;
+use crate::logging::utils::{log_performance_metric, log_slow_operation};
 use crate::models::file::repository::{FileSchema, Image};
 use image::{DynamicImage, ImageFormat, ImageReader};
 use rocket::http::ContentType;
@@ -10,14 +12,18 @@ use std::fmt::Write;
 use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{Duration, Instant, UNIX_EPOCH};
 use std::{fs, io};
 use walkdir::{DirEntry, WalkDir};
 
 fn extract_image_info(path: &PathBuf) -> ImageInfo {
-    let reader = ImageReader::open(path);
-    let dimensions = reader.unwrap().into_dimensions();
-    let dim = dimensions.unwrap_or((0, 0));
+    let dim = match ImageReader::open(path) {
+        Ok(reader) => reader.into_dimensions().unwrap_or((0, 0)),
+        Err(_) => {
+            warn!("Failed to read image dimensions for: {:?}", path);
+            (0, 0)
+        }
+    };
 
     let folder_name = PathBuf::from(path)
         .parent()
@@ -49,8 +55,8 @@ fn extract_image_info(path: &PathBuf) -> ImageInfo {
 
 fn truncate_strings(strings: &mut [String]) {
     for s in strings.iter_mut() {
-        if s.len() > 16 {
-            *s = s.chars().take(16).collect();
+        if s.len() > FILENAME_TRUNCATE_LENGTH {
+            *s = s.chars().take(FILENAME_TRUNCATE_LENGTH).collect();
         }
     }
 }
@@ -85,7 +91,7 @@ pub async fn walk_directory(
             .unwrap_or_default();
     }
 
-    for op_entry in WalkDir::new(dir_path).max_depth(2) {
+    for op_entry in WalkDir::new(dir_path).max_depth(MAX_WALKDIR_DEPTH) {
         match op_entry {
             Ok(entry) => {
                 let path = entry.path();
@@ -94,7 +100,9 @@ pub async fn walk_directory(
                     continue;
                 }
 
-                if entry.path().to_str().unwrap().contains("@eadir") {
+                if let Some(path_str) = entry.path().to_str()
+                    && path_str.contains("@eadir")
+                {
                     continue;
                 }
 
@@ -111,19 +119,16 @@ pub async fn walk_directory(
                 }
 
                 // Skip files that haven't been modified since last indexation
-                if !force_write && last_indexed.is_some() {
-                    if let Ok(metadata) = fs::metadata(path) {
-                        if let Ok(modified_time) = metadata.modified() {
-                            if let Ok(modified_since_epoch) =
-                                modified_time.duration_since(UNIX_EPOCH)
-                            {
-                                let modified_secs = modified_since_epoch.as_secs();
-                                if modified_secs <= last_indexed.unwrap() {
-                                    // File hasn't been modified since last indexation
-                                    continue;
-                                }
-                            }
-                        }
+                if !force_write
+                    && last_indexed.is_some()
+                    && let Ok(metadata) = fs::metadata(path)
+                    && let Ok(modified_time) = metadata.modified()
+                    && let Ok(modified_since_epoch) = modified_time.duration_since(UNIX_EPOCH)
+                {
+                    let modified_secs = modified_since_epoch.as_secs();
+                    if modified_secs <= last_indexed.unwrap() {
+                        // File hasn't been modified since last indexation
+                        continue;
                     }
                 }
 
@@ -161,9 +166,17 @@ pub async fn walk_directory(
                         continue;
                     }
 
+                    let path_str = match path.to_str() {
+                        Some(s) => s.to_string(),
+                        None => {
+                            warn!("Invalid path encoding: {:?}", path);
+                            continue;
+                        }
+                    };
+
                     let image = Image {
                         root: dir_path.to_string(),
-                        path: path.to_str().unwrap().to_string(),
+                        path: path_str,
                         hash: hash_value,
                         extension: image_info.file_extension.to_lowercase(),
                         filename: image_info.file_name,
@@ -212,9 +225,10 @@ fn is_image(path: &Path) -> bool {
 }
 
 fn calculate_sha256(path: &Path) -> io::Result<String> {
+    let start = Instant::now();
     let mut file = File::open(path)?;
     let mut hasher = Sha256::new();
-    let mut buffer = [0; 4096];
+    let mut buffer = [0; HASH_BUFFER_SIZE];
 
     loop {
         let bytes_read = file.read(&mut buffer)?;
@@ -233,6 +247,14 @@ fn calculate_sha256(path: &Path) -> io::Result<String> {
         let _ = write!(string, "{byte:02x}");
         string
     });
+
+    let duration = start.elapsed();
+    log_slow_operation("calculate_sha256", duration, Duration::from_millis(100));
+    log_performance_metric(
+        "hash_calculation_time_ms",
+        duration.as_millis() as f64,
+        "ms",
+    );
 
     Ok(hex_string)
 }
@@ -279,6 +301,8 @@ pub fn create_image_buffer(
     f_schema: &FileSchema,
     image: &DynamicImage,
 ) -> Result<Vec<u8>, AppError> {
+    let start = Instant::now();
+
     let format = match f_schema.extension.as_str() {
         "png" => ImageFormat::Png,
         "jpg" | "jpeg" => ImageFormat::Jpeg,
@@ -295,6 +319,11 @@ pub fn create_image_buffer(
     image
         .write_to(&mut Cursor::new(&mut buffer), format)
         .map_err(AppError::ImageError)?;
+
+    let duration = start.elapsed();
+    let operation = format!("create_image_buffer_{}", f_schema.extension);
+    log_slow_operation(&operation, duration, Duration::from_millis(500));
+    log_performance_metric("image_encode_time_ms", duration.as_millis() as f64, "ms");
 
     Ok(buffer)
 }

@@ -1,26 +1,26 @@
 // src-ui/src/pages/ApiDocs.tsx
-import React from 'react'
+import { FC } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ApiDocsComponent from '../components/ApiDocs'
 import { API_BASE_URL } from '../config/constants'
 
-const ApiDocs: React.FC = () => {
-    const navigate = useNavigate()
+const ApiDocs: FC = () => {
+  const navigate = useNavigate()
 
-    // API Documentation URL
-    const apiDocsUrl = `${API_BASE_URL}/openapi.json`
+  // API Documentation URL
+  const apiDocsUrl = `${API_BASE_URL}/openapi.json`
 
-    const handleBack = () => {
-        navigate('/')
-    }
+  const handleBack = () => {
+    navigate('/')
+  }
 
-    return (
-        <div className="min-h-screen bg-gray-100">
-            <div className="container mx-auto p-4">
-                <ApiDocsComponent specUrl={apiDocsUrl} onBack={handleBack} />
-            </div>
-        </div>
-    )
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <div className="container mx-auto p-4">
+        <ApiDocsComponent specUrl={apiDocsUrl} onBack={handleBack} />
+      </div>
+    </div>
+  )
 }
 
 export default ApiDocs
