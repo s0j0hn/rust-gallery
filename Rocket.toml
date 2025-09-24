@@ -6,12 +6,15 @@ max_blocking = 512
 keep_alive = 5
 ident = "Rocket"
 ip_header = "X-Real-IP" # set to `false` to disable
-log_level = "critical"
+log_level = "normal"  # Rocket's internal logging
 temp_dir = "/tmp"
 cli_colors = false
 secret_key = "161728a27c71f26bcb1d11ef30d2940e54453"
 template_dir = "static/"
 images_dirs = ["files", "captions", "zishy", "sc"]
+
+# Application logging configuration
+app_log_level = "trace"        # trace, debug, info, warn, error
 
 [default.limits]
 form = "64 kB"
