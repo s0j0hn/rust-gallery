@@ -1,6 +1,5 @@
-import { useContext } from 'react'
-import { FolderContext } from '../context/FolderContext'
+import { useFolderStore } from '../stores/folderStore'
 
 export const useFolders = () => {
-    return useContext(FolderContext)
+  return useFolderStore()
 }

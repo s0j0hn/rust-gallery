@@ -1,7 +1,6 @@
 // src-ui/src/hooks/useUI.ts
-import { useContext } from 'react'
-import { UIContext } from '../context/UIContext'
+import { useUIStore } from '../stores/uiStore'
 
 export const useUI = () => {
-    return useContext(UIContext)
+  return useUIStore()
 }
