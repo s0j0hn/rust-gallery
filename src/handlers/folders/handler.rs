@@ -106,7 +106,7 @@ pub async fn get_folders_json(
     }
 
     if items_per_page > MAX_ITEMS_PER_PAGE {
-        return Err(AppError::validation(&format!(
+        return Err(AppError::validation(format!(
             "Items per page cannot exceed {}",
             MAX_ITEMS_PER_PAGE
         )));

@@ -43,6 +43,7 @@ This frontend represents a complete modernization from Create React App to a cut
 ## ✨ Key Features
 
 ### 🎯 Performance Optimizations
+
 - **Virtual Scrolling**: Smooth rendering of large photo collections
 - **Code Splitting**: Lazy loading with React.lazy
 - **Image Caching**: Smart client-side thumbnail caching
@@ -50,12 +51,14 @@ This frontend represents a complete modernization from Create React App to a cut
 - **Memory Management**: Efficient state persistence
 
 ### 📱 Mobile-First Design
+
 - **Touch Gestures**: PhotoSwipe integration for natural interaction
 - **Responsive Layout**: Adaptive design for all screen sizes
 - **Bottom Navigation**: One-handed mobile navigation
 - **Performance**: Optimized for mobile devices
 
 ### ♿ Accessibility First
+
 - **ARIA Support**: Complete accessibility attributes
 - **Keyboard Navigation**: Full keyboard support
 - **Focus Management**: Proper focus trapping and restoration
@@ -63,6 +66,7 @@ This frontend represents a complete modernization from Create React App to a cut
 - **Color Contrast**: WCAG compliant design
 
 ### 🔄 Modern State Management
+
 - **Zustand Stores**: Three specialized stores for different concerns
 - **Persistence**: Selective state persistence across sessions
 - **DevTools**: Integrated debugging capabilities
@@ -71,34 +75,40 @@ This frontend represents a complete modernization from Create React App to a cut
 ## 🏗️ Technology Stack
 
 ### Core Framework
+
 - **React 19**: Latest React features and performance improvements
 - **TypeScript 5.9**: Strict mode with advanced type checking
 - **Vite 7**: Lightning-fast build tool and development server
 
 ### State Management
+
 - **Zustand 5**: Lightweight, performant state management
 - **Persist middleware**: Selective state persistence
 - **DevTools integration**: Debug state changes
 
 ### Data Fetching
+
 - **React Query 5**: Advanced server state management
 - **Infinite Queries**: Pagination with infinite scroll
 - **Optimistic Updates**: Instant UI feedback
 - **Request Deduplication**: Automatic caching and batching
 
 ### UI & Styling
+
 - **Tailwind CSS 3**: Utility-first CSS framework
 - **PhotoSwipe 5**: Touch-enabled gallery with zoom
 - **Lucide Icons**: Beautiful, consistent iconography
 - **Custom Components**: Accessible, reusable UI components
 
 ### Performance
+
 - **React Window**: Virtual scrolling for large lists
 - **React Virtual**: Advanced virtualization
 - **Lazy Loading**: Route-based code splitting
 - **Image Optimization**: Progressive loading and caching
 
 ### Development Tools
+
 - **Vitest 3**: Fast unit testing framework
 - **React Testing Library**: Component testing utilities
 - **MSW**: API mocking for development and testing
@@ -106,16 +116,17 @@ This frontend represents a complete modernization from Create React App to a cut
 
 ## 📊 Performance Metrics
 
-| Metric | Before (CRA) | After (Vite) | Improvement |
-|--------|-------------|-------------|-------------|
-| Build Time | ~45s | ~13s | **70% faster** |
-| Bundle Size | 2.1MB | 1.3MB | **40% smaller** |
-| Dev Server Start | ~8s | ~2s | **75% faster** |
-| HMR Speed | ~3s | ~200ms | **93% faster** |
+| Metric           | Before (CRA) | After (Vite) | Improvement     |
+| ---------------- | ------------ | ------------ | --------------- |
+| Build Time       | ~45s         | ~13s         | **70% faster**  |
+| Bundle Size      | 2.1MB        | 1.3MB        | **40% smaller** |
+| Dev Server Start | ~8s          | ~2s          | **75% faster**  |
+| HMR Speed        | ~3s          | ~200ms       | **93% faster**  |
 
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Node.js 18+
 - pnpm 8+ (recommended) or npm
 
@@ -227,39 +238,42 @@ src-ui/
 ### Zustand Stores
 
 #### 1. Folder Store (`folderStore.ts`)
+
 ```typescript
 interface FolderStore {
-  currentFolder: string | null;
-  folderHistory: string[];
-  searchTerm: string;
-  selectedTags: string[];
+  currentFolder: string | null
+  folderHistory: string[]
+  searchTerm: string
+  selectedTags: string[]
   // Actions
-  setCurrentFolder: (folder: string) => void;
-  updateSearchTerm: (term: string) => void;
+  setCurrentFolder: (folder: string) => void
+  updateSearchTerm: (term: string) => void
   // ... more actions
 }
 ```
 
 #### 2. UI Store (`uiStore.ts`)
+
 ```typescript
 interface UIStore {
-  modals: Record<string, boolean>;
-  loading: Record<string, boolean>;
-  errors: Record<string, string>;
+  modals: Record<string, boolean>
+  loading: Record<string, boolean>
+  errors: Record<string, string>
   // Actions
-  openModal: (modalId: string) => void;
-  setLoading: (key: string, loading: boolean) => void;
+  openModal: (modalId: string) => void
+  setLoading: (key: string, loading: boolean) => void
   // ... more actions
 }
 ```
 
 #### 3. Config Store (`configStore.ts`)
+
 ```typescript
 interface ConfigStore {
-  config: AppConfig;
-  cacheSettings: CacheSettings;
+  config: AppConfig
+  cacheSettings: CacheSettings
   // Actions
-  updateConfig: (config: Partial<AppConfig>) => void;
+  updateConfig: (config: Partial<AppConfig>) => void
   // ... more actions
 }
 ```
@@ -267,6 +281,7 @@ interface ConfigStore {
 ## 🔍 Data Fetching with React Query
 
 ### Query Hooks
+
 - `useFolders()` - Fetch folder lists with pagination
 - `useFiles()` - Fetch files with filtering and search
 - `useTags()` - Fetch and manage tags
@@ -274,6 +289,7 @@ interface ConfigStore {
 - `useConfig()` - Application configuration
 
 ### Advanced Features
+
 - **Infinite Queries**: Automatic pagination handling
 - **Optimistic Updates**: Instant UI feedback
 - **Background Refetching**: Keep data fresh
@@ -283,6 +299,7 @@ interface ConfigStore {
 ## 🧪 Testing Strategy
 
 ### Unit Testing with Vitest
+
 ```typescript
 // Component testing with React Testing Library
 import { render, screen } from '@testing-library/react';
@@ -297,18 +314,20 @@ describe('PhotoGrid', () => {
 ```
 
 ### API Mocking with MSW
+
 ```typescript
 // Mock API responses for testing
-import { rest } from 'msw';
+import { rest } from 'msw'
 
 export const handlers = [
   rest.get('/api/folders', (req, res, ctx) => {
-    return res(ctx.json(mockFolders));
+    return res(ctx.json(mockFolders))
   }),
-];
+]
 ```
 
 ### Testing Scripts
+
 - `pnpm test` - Run all tests
 - `pnpm test:watch` - Run tests in watch mode
 - `pnpm test:ui` - Run tests with Vitest UI
@@ -317,18 +336,21 @@ export const handlers = [
 ## 📱 Mobile Optimization
 
 ### Touch-First Design
+
 - **44px minimum touch targets**
 - **Thumb-friendly navigation**
 - **Swipe gestures** for natural interaction
 - **Bottom navigation** for one-handed use
 
 ### Performance on Mobile
+
 - **Lazy loading** to reduce initial payload
 - **Image optimization** with WebP support
 - **Efficient caching** to minimize data usage
 - **Progressive enhancement**
 
 ### Responsive Breakpoints
+
 ```css
 /* Tailwind CSS breakpoints used */
 sm: 640px   /* Small devices */
@@ -341,6 +363,7 @@ xl: 1280px  /* Extra large devices */
 ## 🔌 Backend Integration
 
 ### API Communication
+
 The frontend communicates with the Rust backend through well-defined API endpoints:
 
 ```typescript
@@ -359,11 +382,12 @@ export const api = {
   tags: {
     list: (folder?: string) => fetch('/tags', { params: { folder } }),
     assign: (data: TagAssignment) => post('/tags/assign', data),
-  }
-};
+  },
+}
 ```
 
 ### Error Handling
+
 The frontend handles all backend error responses gracefully:
 
 ```typescript
@@ -379,6 +403,7 @@ if (error) {
 ## 🚀 Deployment
 
 ### Production Build
+
 ```bash
 # Create optimized production build
 pnpm build
@@ -388,23 +413,27 @@ pnpm build
 ```
 
 ### Build Optimization
+
 - **Tree shaking** removes unused code
 - **Code splitting** creates optimized chunks
 - **Asset optimization** compresses images and fonts
 - **Service worker** ready for PWA features
 
 ### Integration with Backend
+
 In production, the Rust backend serves the built React files from the `/static` directory, providing a single-server deployment.
 
 ## 🔧 Development
 
 ### Development Server Features
+
 - **Hot Module Replacement (HMR)** for instant updates
 - **TypeScript checking** in the browser
 - **API proxy** to backend during development
 - **Network access** for mobile testing
 
 ### Code Quality
+
 - **ESLint** with React and TypeScript rules
 - **Prettier** for consistent code formatting
 - **TypeScript** strict mode enabled
@@ -413,6 +442,7 @@ In production, the Rust backend serves the built React files from the `/static` 
 ## 📈 Performance Monitoring
 
 ### Bundle Analysis
+
 ```bash
 # Analyze bundle size and composition
 pnpm build:analyze
@@ -422,6 +452,7 @@ pnpm analyze
 ```
 
 ### Metrics Tracking
+
 - Bundle size monitoring
 - Performance vitals
 - Error tracking ready
@@ -436,6 +467,7 @@ pnpm analyze
 5. Submit a pull request
 
 ### Development Workflow
+
 ```bash
 # Setup development environment
 pnpm install

@@ -122,7 +122,7 @@ const SearchBar: FC<SearchBarProps> = ({
       {value && (
         <div className="relative  left-0 text-sm text-blue-600 font-medium flex items-center">
           <Search size={12} className="mr-1" />
-          Searching: "{value}"
+          Searching: &#34;{value}&#34;
           <button
             onClick={() => handleSearch('')}
             className="ml-2 text-blue-800 hover:underline text-xs"

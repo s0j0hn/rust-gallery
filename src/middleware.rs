@@ -1,10 +1,10 @@
 use rocket::{
+    Data, Request, Response,
     fairing::{Fairing, Info, Kind},
     http::Header,
-    Data, Request, Response,
 };
 use std::time::{Duration, Instant};
-use tracing::{info, warn, debug};
+use tracing::{debug, info, warn};
 
 use crate::logging::RequestMetrics;
 
@@ -22,7 +22,7 @@ impl Fairing for RequestLogger {
 
     async fn on_request(&self, request: &mut Request<'_>, _: &mut Data<'_>) {
         // Store request start time
-        request.local_cache(|| RequestTimer::new());
+        request.local_cache(RequestTimer::new);
 
         // Log incoming request
         debug!(
@@ -35,7 +35,7 @@ impl Fairing for RequestLogger {
 
     async fn on_response<'r>(&self, request: &'r Request<'_>, response: &mut Response<'r>) {
         // Get request start time
-        let timer = request.local_cache(|| RequestTimer::new());
+        let timer = request.local_cache(RequestTimer::new);
         let duration = timer.elapsed();
 
         // Extract request information
@@ -75,7 +75,10 @@ impl Fairing for RequestLogger {
 
         // Add response headers for debugging (in debug mode only)
         if cfg!(debug_assertions) {
-            response.set_header(Header::new("X-Response-Time-Ms", duration.as_millis().to_string()));
+            response.set_header(Header::new(
+                "X-Response-Time-Ms",
+                duration.as_millis().to_string(),
+            ));
         }
     }
 }
@@ -116,16 +119,33 @@ impl Fairing for SecurityLogger {
 
         // Check for suspicious patterns
         let suspicious_patterns = [
-            "../", "..\\", "/etc/passwd", "/etc/shadow",
-            "SELECT", "UNION", "DROP", "INSERT", "UPDATE", "DELETE",
-            "<script", "javascript:", "onload=", "onerror=",
-            "cmd.exe", "powershell", "/bin/bash", "/bin/sh",
+            "../",
+            "..\\",
+            "/etc/passwd",
+            "/etc/shadow",
+            "SELECT",
+            "UNION",
+            "DROP",
+            "INSERT",
+            "UPDATE",
+            "DELETE",
+            "<script",
+            "javascript:",
+            "onload=",
+            "onerror=",
+            "cmd.exe",
+            "powershell",
+            "/bin/bash",
+            "/bin/sh",
         ];
 
         let full_request = format!("{} {}", path, query);
 
         for pattern in &suspicious_patterns {
-            if full_request.to_lowercase().contains(&pattern.to_lowercase()) {
+            if full_request
+                .to_lowercase()
+                .contains(&pattern.to_lowercase())
+            {
                 warn!(
                     method = %request.method(),
                     uri = %uri,
@@ -140,15 +160,15 @@ impl Fairing for SecurityLogger {
 
         // Log requests with unusual headers
         let headers = request.headers();
-        if let Some(user_agent) = headers.get_one("User-Agent") {
-            if user_agent.len() > 500 || user_agent.contains("curl") && !cfg!(debug_assertions) {
-                warn!(
-                    method = %request.method(),
-                    uri = %uri,
-                    user_agent = user_agent,
-                    "Unusual user agent detected"
-                );
-            }
+        if let Some(user_agent) = headers.get_one("User-Agent")
+            && (user_agent.len() > 500 || user_agent.contains("curl") && !cfg!(debug_assertions))
+        {
+            warn!(
+                method = %request.method(),
+                uri = %uri,
+                user_agent = user_agent,
+                "Unusual user agent detected"
+            );
         }
 
         // Log requests without user agent (potentially automated)
@@ -176,7 +196,7 @@ impl Fairing for PerformanceMonitor {
     }
 
     async fn on_response<'r>(&self, request: &'r Request<'_>, response: &mut Response<'r>) {
-        let timer = request.local_cache(|| RequestTimer::new());
+        let timer = request.local_cache(RequestTimer::new);
         let duration = timer.elapsed();
 
         // Define performance thresholds
@@ -202,8 +222,7 @@ impl Fairing for PerformanceMonitor {
         }
 
         // Log database-heavy endpoints
-        if request.uri().path().contains("/files/") ||
-           request.uri().path().contains("/folders/") {
+        if request.uri().path().contains("/files/") || request.uri().path().contains("/folders/") {
             debug!(
                 method = %request.method(),
                 uri = %request.uri(),

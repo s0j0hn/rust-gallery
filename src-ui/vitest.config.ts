@@ -11,10 +11,7 @@ export default defineConfig({
     css: true,
     coverage: {
       reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        'src/setupTests.ts',
-      ],
+      exclude: ['node_modules/', 'src/setupTests.ts'],
     },
   },
   resolve: {

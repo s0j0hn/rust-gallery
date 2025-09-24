@@ -2,7 +2,7 @@ use crate::DbConn;
 use crate::cache_files::CachedImage;
 use crate::constants::*;
 use crate::error::AppError;
-use crate::logging::utils::{log_slow_operation, log_performance_metric};
+use crate::logging::utils::{log_performance_metric, log_slow_operation};
 use crate::models::file::repository::{FileSchema, Image};
 use image::{DynamicImage, ImageFormat, ImageReader};
 use rocket::http::ContentType;
@@ -100,10 +100,10 @@ pub async fn walk_directory(
                     continue;
                 }
 
-                if let Some(path_str) = entry.path().to_str() {
-                    if path_str.contains("@eadir") {
-                        continue;
-                    }
+                if let Some(path_str) = entry.path().to_str()
+                    && path_str.contains("@eadir")
+                {
+                    continue;
                 }
 
                 if entry.file_type().is_dir() {
@@ -119,19 +119,16 @@ pub async fn walk_directory(
                 }
 
                 // Skip files that haven't been modified since last indexation
-                if !force_write && last_indexed.is_some() {
-                    if let Ok(metadata) = fs::metadata(path) {
-                        if let Ok(modified_time) = metadata.modified() {
-                            if let Ok(modified_since_epoch) =
-                                modified_time.duration_since(UNIX_EPOCH)
-                            {
-                                let modified_secs = modified_since_epoch.as_secs();
-                                if modified_secs <= last_indexed.unwrap() {
-                                    // File hasn't been modified since last indexation
-                                    continue;
-                                }
-                            }
-                        }
+                if !force_write
+                    && last_indexed.is_some()
+                    && let Ok(metadata) = fs::metadata(path)
+                    && let Ok(modified_time) = metadata.modified()
+                    && let Ok(modified_since_epoch) = modified_time.duration_since(UNIX_EPOCH)
+                {
+                    let modified_secs = modified_since_epoch.as_secs();
+                    if modified_secs <= last_indexed.unwrap() {
+                        // File hasn't been modified since last indexation
+                        continue;
                     }
                 }
 
@@ -253,7 +250,11 @@ fn calculate_sha256(path: &Path) -> io::Result<String> {
 
     let duration = start.elapsed();
     log_slow_operation("calculate_sha256", duration, Duration::from_millis(100));
-    log_performance_metric("hash_calculation_time_ms", duration.as_millis() as f64, "ms");
+    log_performance_metric(
+        "hash_calculation_time_ms",
+        duration.as_millis() as f64,
+        "ms",
+    );
 
     Ok(hex_string)
 }

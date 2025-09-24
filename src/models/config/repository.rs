@@ -1,6 +1,6 @@
 use crate::DbConn;
-use crate::models::config::model::config;
 use crate::logging::db_logging;
+use crate::models::config::model::config;
 use diesel::{ExpressionMethods, QueryDsl, QueryResult, RunQueryDsl};
 use rocket::serde::{Deserialize, Serialize};
 use std::time::Instant;
@@ -65,13 +65,14 @@ impl ConfigSchema {
         let query = "SELECT * FROM config WHERE id = 1";
         db_logging::log_query_start(query, Some("id=1"));
 
-        let result = conn.run(move |c| {
-            config::table
-                .filter(config::id.eq(1))
-                .first::<ConfigSchemaRaw>(c)
-                .map(ConfigSchema::from)
-        })
-        .await;
+        let result = conn
+            .run(move |c| {
+                config::table
+                    .filter(config::id.eq(1))
+                    .first::<ConfigSchemaRaw>(c)
+                    .map(ConfigSchema::from)
+            })
+            .await;
 
         let duration = start.elapsed();
         match &result {
@@ -105,33 +106,34 @@ impl ConfigSchema {
         let query = "INSERT INTO config ... ON CONFLICT UPDATE";
         db_logging::log_query_start(query, Some(&format!("config: {:?}", config)));
 
-        let result = conn.run(move |c| {
-            let t = ConfigSchemaRaw::from(config.clone());
+        let result = conn
+            .run(move |c| {
+                let t = ConfigSchemaRaw::from(config.clone());
 
-            // Try to insert first
-            let insert_result = diesel::insert_into(config::table).values(&t).execute(c);
+                // Try to insert first
+                let insert_result = diesel::insert_into(config::table).values(&t).execute(c);
 
-            match insert_result {
-                Ok(rows) => {
-                    // If insert succeeded, return the result
-                    Ok(rows)
+                match insert_result {
+                    Ok(rows) => {
+                        // If insert succeeded, return the result
+                        Ok(rows)
+                    }
+                    Err(_) => {
+                        // If insert failed (likely because the record exists),
+                        // perform an update based on the id
+                        diesel::update(config::table)
+                            .filter(config::id.eq(1))
+                            .set((
+                                config::random_equal_folders.eq(config.random_equal_folders),
+                                config::equal_enabled.eq(if config.equal_enabled { 1 } else { 0 }),
+                                config::folders_per_page.eq(config.folders_per_page),
+                                config::photo_per_random.eq(config.photo_per_random),
+                            ))
+                            .execute(c)
+                    }
                 }
-                Err(_) => {
-                    // If insert failed (likely because the record exists),
-                    // perform an update based on the id
-                    diesel::update(config::table)
-                        .filter(config::id.eq(1))
-                        .set((
-                            config::random_equal_folders.eq(config.random_equal_folders),
-                            config::equal_enabled.eq(if config.equal_enabled { 1 } else { 0 }),
-                            config::folders_per_page.eq(config.folders_per_page),
-                            config::photo_per_random.eq(config.photo_per_random),
-                        ))
-                        .execute(c)
-                }
-            }
-        })
-        .await;
+            })
+            .await;
 
         let duration = start.elapsed();
         match &result {

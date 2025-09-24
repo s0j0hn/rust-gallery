@@ -54,7 +54,9 @@ export const GalleryContent: FC<{
           caption={`${image.folder_name} - ${image.filename} (${image.height}x${image.width}) - ${JSON.parse(image.tags)}`}
         >
           {({ ref, open }) => (
-            <div className={`cursor-pointer bg-gray-100 rounded overflow-hidden ${hidden ? 'sr-only' : ''}`}>
+            <div
+              className={`cursor-pointer bg-gray-100 rounded overflow-hidden ${hidden ? 'sr-only' : ''}`}
+            >
               <div className="relative pb-full">
                 <img
                   ref={ref}

@@ -5,17 +5,20 @@
 All recommended React best practices have been successfully implemented:
 
 ### ✅ Build & Development
+
 - **Vite** replaces Create React App for faster builds and HMR
 - TypeScript configuration optimized for modern bundling
 - Development server with proxy configuration for API
 
 ### ✅ State Management
+
 - **Zustand** stores replace Context API for simpler, performant state
 - Three stores: `folderStore`, `uiStore`, `configStore`
 - Persist middleware for selected state persistence
 - DevTools integration for debugging
 
 ### ✅ Data Fetching
+
 - **React Query** (@tanstack/react-query) for server state
 - Infinite queries for pagination
 - Optimistic updates for mutations
@@ -23,12 +26,14 @@ All recommended React best practices have been successfully implemented:
 - Request deduplication and caching
 
 ### ✅ Type Safety
+
 - **Zod** schemas for runtime validation
 - API response validation
 - Type inference from schemas
 - Error boundary for type mismatches
 
 ### ✅ Performance
+
 - **React.lazy** for code splitting
 - **Virtual scrolling** with react-window and @tanstack/react-virtual
 - Image lazy loading and caching
@@ -36,18 +41,21 @@ All recommended React best practices have been successfully implemented:
 - Removed unused dependencies (lodash, CRA)
 
 ### ✅ Testing
+
 - **Vitest** for fast unit testing
 - **MSW** for API mocking
 - React Testing Library setup
 - Sample test files with best practices
 
 ### ✅ Developer Experience
+
 - **ESLint 9** with TypeScript and React rules
 - **Prettier** for code formatting
 - Git hooks ready (can add husky + lint-staged)
 - React Query DevTools
 
 ### ✅ Accessibility
+
 - Accessible button component with loading states
 - Modal with focus management and keyboard navigation
 - Skip navigation link
@@ -55,6 +63,7 @@ All recommended React best practices have been successfully implemented:
 - Keyboard navigation support
 
 ### ✅ UI Components
+
 - Virtual folder list with infinite scroll
 - Virtual photo grid with performance optimization
 - Accessible modal system

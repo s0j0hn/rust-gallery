@@ -36,9 +36,9 @@ use rocket::{
     fs::{FileServer, Options, relative},
     serde::Deserialize,
 };
-use tracing::{info, error};
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions, Error};
 use std::{collections::HashMap, sync::Arc, time::Duration};
+use tracing::{error, info};
 
 use crate::handlers::configs::handler::get_config;
 use crate::handlers::{
@@ -55,7 +55,7 @@ use crate::handlers::{
 };
 // Application-specific imports
 use cache_files::{ImageCache, StateFiles};
-use middleware::{RequestLogger, SecurityLogger, PerformanceMonitor};
+use middleware::{PerformanceMonitor, RequestLogger, SecurityLogger};
 
 /// Database connection pool for SQLite
 ///
@@ -122,10 +122,13 @@ fn configure_cors() -> Result<rocket_cors::Cors, Error> {
 /// Initialize logging system for console output only
 async fn init_logging_system(rocket: Rocket<Build>) -> Rocket<Build> {
     // Get configuration from Rocket
-    let config = rocket.figment().extract::<AppConfig>().unwrap_or_else(|_| AppConfig {
-        images_dirs: vec!["images".to_string()],
-        app_log_level: Some("info".to_string()),
-    });
+    let config = rocket
+        .figment()
+        .extract::<AppConfig>()
+        .unwrap_or_else(|_| AppConfig {
+            images_dirs: vec!["images".to_string()],
+            app_log_level: Some("info".to_string()),
+        });
 
     // Create logging configuration (console only)
     let log_config = logging::LogConfig {

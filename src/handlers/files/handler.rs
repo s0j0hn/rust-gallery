@@ -12,7 +12,7 @@ use rocket::form::FromForm;
 use rocket::serde::Serialize;
 use rocket::serde::json::Json;
 use std::path::Path;
-use tracing::{info, warn, debug, instrument};
+use tracing::{debug, info, instrument, warn};
 
 #[get("/<hash>/download?<width>&<height>")]
 #[instrument(skip(conn), fields(hash = %hash, width = ?width, height = ?height))]
@@ -49,17 +49,17 @@ pub async fn retrieve_file(
     );
 
     // Check if resizing is needed
-    if let (Some(image_width), Some(image_height)) = (width, height) {
-        if image_width as i32 > f_schema.width || image_height as i32 > f_schema.height {
-            let img = image::open(&f_schema.path)?;
-            let resized_img = img.resize(
-                image_width as u32,
-                image_height as u32,
-                image::imageops::FilterType::Lanczos3,
-            );
-            let buffer = create_image_buffer(&f_schema, &resized_img)?;
-            return Ok(create_cached_image(buffer, &f_schema.extension, 86400));
-        }
+    if let (Some(image_width), Some(image_height)) = (width, height)
+        && (image_width as i32 > f_schema.width || image_height as i32 > f_schema.height)
+    {
+        let img = image::open(&f_schema.path)?;
+        let resized_img = img.resize(
+            image_width as u32,
+            image_height as u32,
+            image::imageops::FilterType::Lanczos3,
+        );
+        let buffer = create_image_buffer(&f_schema, &resized_img)?;
+        return Ok(create_cached_image(buffer, &f_schema.extension, 86400));
     }
 
     // Return the original file
@@ -206,12 +206,6 @@ pub struct JsonFileResponse {
     total: usize,
 }
 
-#[derive(Serialize)]
-#[serde(crate = "rocket::serde")]
-pub struct JsonFileTagsResponse {
-    tags: Vec<String>,
-}
-
 impl JsonFileResponse {
     // Helper method to create a response with files
     fn with_files(files: Vec<FileSchema>, page: usize, total: usize) -> Json<Self> {
@@ -249,7 +243,7 @@ pub async fn random_json(conn: DbConn, query: RandomQuery) -> AppResult<Json<Jso
     }
 
     if query.size > MAX_PAGINATION_SIZE {
-        return Err(AppError::validation(&format!(
+        return Err(AppError::validation(format!(
             "Size cannot exceed {}",
             MAX_PAGINATION_SIZE
         )));
@@ -300,29 +294,29 @@ pub async fn get_all_files_json(
     }
 
     if items_per_page > MAX_ITEMS_PER_PAGE {
-        return Err(AppError::validation(&format!(
+        return Err(AppError::validation(format!(
             "Items per page cannot exceed {}",
             MAX_ITEMS_PER_PAGE
         )));
     }
 
     // Validate folder parameter
-    if let Some(folder_param) = folder {
-        if folder_param.len() > MAX_FOLDER_NAME_LENGTH {
-            return Err(AppError::validation("Folder name too long"));
-        }
+    if let Some(folder_param) = folder
+        && folder_param.len() > MAX_FOLDER_NAME_LENGTH
+    {
+        return Err(AppError::validation("Folder name too long"));
     }
 
     let mut lock = state_files.files.lock().await;
 
-    if let Some(folder_files) = lock.get(folder_filter) {
-        if !folder_files.is_empty() {
-            return Ok(JsonFileResponse::with_files(
-                folder_files.clone(),
-                current_page,
-                folder_files.len(),
-            ));
-        }
+    if let Some(folder_files) = lock.get(folder_filter)
+        && !folder_files.is_empty()
+    {
+        return Ok(JsonFileResponse::with_files(
+            folder_files.clone(),
+            current_page,
+            folder_files.len(),
+        ));
     }
 
     // Calculate offset

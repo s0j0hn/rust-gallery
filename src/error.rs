@@ -4,7 +4,7 @@ use rocket::response::{self, Responder};
 use rocket::serde::Serialize;
 use rocket::serde::json::Json;
 use std::fmt;
-use tracing::{error, warn, info};
+use tracing::{error, info, warn};
 
 #[derive(Debug)]
 pub enum AppError {
@@ -55,7 +55,7 @@ impl<'r> Responder<'r, 'static> for AppError {
                     "Resource not found"
                 );
                 (Status::NotFound, self.to_string(), true)
-            },
+            }
             AppError::BadRequest(_msg) => {
                 warn!(
                     error = %self,
@@ -65,7 +65,7 @@ impl<'r> Responder<'r, 'static> for AppError {
                     "Bad request"
                 );
                 (Status::BadRequest, self.to_string(), true)
-            },
+            }
             AppError::Unauthorized(_msg) => {
                 warn!(
                     error = %self,
@@ -75,7 +75,7 @@ impl<'r> Responder<'r, 'static> for AppError {
                     "Unauthorized access attempt"
                 );
                 (Status::Unauthorized, self.to_string(), true)
-            },
+            }
             AppError::ValidationError(_msg) => {
                 info!(
                     error = %self,
@@ -84,7 +84,7 @@ impl<'r> Responder<'r, 'static> for AppError {
                     "Validation error"
                 );
                 (Status::UnprocessableEntity, self.to_string(), true)
-            },
+            }
             AppError::DatabaseError(db_err) => {
                 error!(
                     error = %self,
@@ -98,7 +98,7 @@ impl<'r> Responder<'r, 'static> for AppError {
                     "Internal server error".to_string(),
                     false,
                 )
-            },
+            }
             AppError::IoError(io_err) => {
                 error!(
                     error = %self,
@@ -112,7 +112,7 @@ impl<'r> Responder<'r, 'static> for AppError {
                     "Internal server error".to_string(),
                     false,
                 )
-            },
+            }
             AppError::ImageError(img_err) => {
                 error!(
                     error = %self,
@@ -126,7 +126,7 @@ impl<'r> Responder<'r, 'static> for AppError {
                     "Internal server error".to_string(),
                     false,
                 )
-            },
+            }
             AppError::InternalError(_msg) => {
                 error!(
                     error = %self,

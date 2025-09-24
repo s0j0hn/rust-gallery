@@ -1,6 +1,11 @@
-use tracing::Level;
-use tracing_subscriber::{fmt::{self, format::FmtSpan, time::UtcTime}, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer, Registry};
 use std::time::Duration;
+use tracing::Level;
+use tracing_subscriber::{
+    EnvFilter, Layer, Registry,
+    fmt::{self, format::FmtSpan, time::UtcTime},
+    layer::SubscriberExt,
+    util::SubscriberInitExt,
+};
 
 /// Logging configuration for the application
 #[derive(Debug, Clone)]
@@ -64,7 +69,10 @@ pub fn init_logging(config: LogConfig) -> Result<(), Box<dyn std::error::Error>>
         return Ok(()); // Return OK if already initialized
     }
 
-    tracing::info!("Logging system initialized with level: {}", config.log_level);
+    tracing::info!(
+        "Logging system initialized with level: {}",
+        config.log_level
+    );
 
     Ok(())
 }
@@ -83,41 +91,41 @@ fn parse_log_level(level: &str) -> Result<Level, Box<dyn std::error::Error>> {
 
 /// Logging utilities for the application
 pub mod utils {
-    use tracing::{info, warn, error};
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
+    use tracing::{info, warn};
 
-    /// Log a timed operation
-    pub async fn log_operation<F, T, E>(
-        operation_name: &str,
-        operation: F,
-    ) -> Result<T, E>
-    where
-        F: std::future::Future<Output = Result<T, E>>,
-        E: std::fmt::Display,
-    {
-        let start = Instant::now();
-        info!("Starting operation: {}", operation_name);
-
-        let result = operation.await;
-        let duration = start.elapsed();
-
-        match &result {
-            Ok(_) => {
-                info!(
-                    "Operation completed successfully: {} (took {:?})",
-                    operation_name, duration
-                );
-            }
-            Err(e) => {
-                error!(
-                    "Operation failed: {} - {} (took {:?})",
-                    operation_name, e, duration
-                );
-            }
-        }
-
-        result
-    }
+    // Log a timed operation
+    // pub async fn log_operation<F, T, E>(
+    //     operation_name: &str,
+    //     operation: F,
+    // ) -> Result<T, E>
+    // where
+    //     F: std::future::Future<Output = Result<T, E>>,
+    //     E: std::fmt::Display,
+    // {
+    //     let start = Instant::now();
+    //     info!("Starting operation: {}", operation_name);
+    //
+    //     let result = operation.await;
+    //     let duration = start.elapsed();
+    //
+    //     match &result {
+    //         Ok(_) => {
+    //             info!(
+    //                 "Operation completed successfully: {} (took {:?})",
+    //                 operation_name, duration
+    //             );
+    //         }
+    //         Err(e) => {
+    //             error!(
+    //                 "Operation failed: {} - {} (took {:?})",
+    //                 operation_name, e, duration
+    //             );
+    //         }
+    //     }
+    //
+    //     result
+    // }
 
     /// Log performance metrics
     pub fn log_performance_metric(metric_name: &str, value: f64, unit: &str) {
@@ -202,15 +210,11 @@ impl RequestMetrics {
 
 /// Database operation logging
 pub mod db_logging {
-    use tracing::{warn, error, debug};
     use std::time::Duration;
+    use tracing::{debug, error, warn};
 
     pub fn log_query_start(query: &str, params: Option<&str>) {
-        debug!(
-            query = query,
-            params = params,
-            "Database query starting"
-        );
+        debug!(query = query, params = params, "Database query starting");
     }
 
     pub fn log_query_complete(query: &str, duration: Duration, rows_affected: Option<usize>) {
@@ -243,22 +247,14 @@ pub mod db_logging {
 
 /// Cache operation logging
 pub mod cache_logging {
-    use tracing::{info, debug};
+    use tracing::debug;
 
     pub fn log_cache_hit(key: &str, cache_type: &str) {
-        debug!(
-            key = key,
-            cache_type = cache_type,
-            "Cache hit"
-        );
+        debug!(key = key, cache_type = cache_type, "Cache hit");
     }
 
     pub fn log_cache_miss(key: &str, cache_type: &str) {
-        debug!(
-            key = key,
-            cache_type = cache_type,
-            "Cache miss"
-        );
+        debug!(key = key, cache_type = cache_type, "Cache miss");
     }
 
     pub fn log_cache_set(key: &str, cache_type: &str, ttl: Option<u64>) {
@@ -267,25 +263,6 @@ pub mod cache_logging {
             cache_type = cache_type,
             ttl = ttl,
             "Cache entry set"
-        );
-    }
-
-    pub fn log_cache_eviction(key: &str, cache_type: &str, reason: &str) {
-        info!(
-            key = key,
-            cache_type = cache_type,
-            reason = reason,
-            "Cache entry evicted"
-        );
-    }
-
-    pub fn log_cache_stats(cache_type: &str, hit_rate: f64, size: usize, capacity: usize) {
-        info!(
-            cache_type = cache_type,
-            hit_rate = hit_rate,
-            size = size,
-            capacity = capacity,
-            "Cache statistics"
         );
     }
 }
