@@ -1,11 +1,10 @@
 // Updated cache_files.rs
 use crate::models::file::repository::FileSchema;
+use dashmap::DashMap;
 use moka::sync::Cache;
 use rocket::Request;
-use rocket::futures::lock::Mutex;
 use rocket::http::{ContentType, Header};
 use rocket::response::Responder;
-use std::collections::HashMap;
 use std::io::Cursor;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -17,7 +16,7 @@ pub struct CachedImage(pub Vec<u8>, pub Option<ContentType>, pub Option<Duration
 impl CachedImage {
     // Constructor with content type and cache duration
     pub fn with_cache(data: Vec<u8>, content_type: ContentType, cache_duration: Duration) -> Self {
-        CachedImage(data, Some(content_type), Some(cache_duration))
+        Self(data, Some(content_type), Some(cache_duration))
     }
 }
 
@@ -90,5 +89,5 @@ fn format_http_date(secs: u64) -> String {
 }
 
 pub struct StateFiles {
-    pub files: Mutex<HashMap<String, Vec<FileSchema>>>,
+    pub files: Arc<DashMap<String, Vec<FileSchema>>>,
 }

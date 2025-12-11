@@ -49,22 +49,54 @@ pub async fn retrieve_file(
     );
 
     // Check if resizing is needed
-    if let (Some(image_width), Some(image_height)) = (width, height)
-        && (image_width as i32 > f_schema.width || image_height as i32 > f_schema.height)
-    {
-        let img = image::open(&f_schema.path)?;
-        let resized_img = img.resize(
-            image_width as u32,
-            image_height as u32,
-            image::imageops::FilterType::Lanczos3,
-        );
-        let buffer = create_image_buffer(&f_schema, &resized_img)?;
-        return Ok(create_cached_image(buffer, &f_schema.extension, 86400));
+    if let (Some(image_width), Some(image_height)) = (width, height) {
+        let w = image_width as u32;
+        let h = image_height as u32;
+
+        // Validate resize limits to prevent DoS attacks
+        if w > MAX_RESIZE_WIDTH || h > MAX_RESIZE_HEIGHT {
+            return Err(AppError::validation(format!(
+                "Requested dimensions {}x{} exceed maximum {}x{}",
+                w, h, MAX_RESIZE_WIDTH, MAX_RESIZE_HEIGHT
+            )));
+        }
+
+        let total_pixels = u64::from(w) * u64::from(h);
+        if total_pixels > MAX_RESIZE_PIXELS {
+            return Err(AppError::validation(
+                "Requested image size exceeds maximum pixel count",
+            ));
+        }
+
+        if w as i32 <= f_schema.width || h as i32 <= f_schema.height {
+            // Offload blocking image I/O to dedicated thread pool
+            let path = f_schema.path.clone();
+            let extension = f_schema.extension.clone();
+            let schema = f_schema.clone();
+
+            let buffer = tokio::task::spawn_blocking(move || -> Result<Vec<u8>, AppError> {
+                let img = image::open(&path)?;
+                let resized_img = img.resize(w, h, image::imageops::FilterType::Lanczos3);
+                create_image_buffer(&schema, &resized_img)
+            })
+            .await
+            .map_err(|e| AppError::internal(format!("Task join error: {e}")))??;
+
+            return Ok(create_cached_image(buffer, &extension, CACHE_TTL_1_DAY));
+        }
     }
 
     // Return the original file
-    let buffer = read_file_to_buffer(&f_schema.path)?;
-    Ok(create_cached_image(buffer, &f_schema.extension, 86400))
+    let path = f_schema.path.clone();
+    let extension = f_schema.extension.clone();
+
+    let buffer = tokio::task::spawn_blocking(move || -> Result<Vec<u8>, AppError> {
+        read_file_to_buffer(&path)
+    })
+    .await
+    .map_err(|e| AppError::internal(format!("Task join error: {e}")))??;
+
+    Ok(create_cached_image(buffer, &extension, CACHE_TTL_1_DAY))
 }
 
 #[get("/thumbnail/folder/download?<folder>&<width>&<height>&<number>")]
@@ -94,7 +126,7 @@ pub async fn get_thumbnail_folder(
     if let Some(data) = cache.get(&cache_key) {
         cache_logging::log_cache_hit(&cache_key, "thumbnail_folder");
         let extension = "jpg";
-        return Ok(create_cached_image(data, extension, 604800));
+        return Ok(create_cached_image(data, extension, CACHE_TTL_7_DAYS));
     }
     cache_logging::log_cache_miss(&cache_key, "thumbnail_folder");
 
@@ -131,14 +163,22 @@ pub async fn get_thumbnail_folder(
         );
 
         let buffer = create_image_buffer(f_schema, &resized_img)?;
-        cache_logging::log_cache_set(&cache_key, "thumbnail_folder", Some(604800));
+        cache_logging::log_cache_set(&cache_key, "thumbnail_folder", Some(CACHE_TTL_7_DAYS));
         cache.insert(cache_key, buffer.clone());
-        return Ok(create_cached_image(buffer, &f_schema.extension, 604800));
+        return Ok(create_cached_image(
+            buffer,
+            &f_schema.extension,
+            CACHE_TTL_7_DAYS,
+        ));
     }
 
     // Return original file if no resizing needed
     let buffer = read_file_to_buffer(&f_schema.path)?;
-    Ok(create_cached_image(buffer, &f_schema.extension, 604800))
+    Ok(create_cached_image(
+        buffer,
+        &f_schema.extension,
+        CACHE_TTL_7_DAYS,
+    ))
 }
 
 #[get("/thumbnail/photo/download?<hash>&<width>&<height>")]
@@ -163,7 +203,7 @@ pub async fn get_thumbnail_photo(
     if let Some(data) = cache.get(&cache_key) {
         cache_logging::log_cache_hit(&cache_key, "thumbnail_photo");
         let extension = "jpg";
-        return Ok(create_cached_image(data, extension, 604800));
+        return Ok(create_cached_image(data, extension, CACHE_TTL_7_DAYS));
     }
     cache_logging::log_cache_miss(&cache_key, "thumbnail_photo");
 
@@ -188,14 +228,22 @@ pub async fn get_thumbnail_photo(
         );
 
         let buffer = create_image_buffer(&f_schema, &resized_img)?;
-        cache_logging::log_cache_set(&cache_key, "thumbnail_photo", Some(604800));
+        cache_logging::log_cache_set(&cache_key, "thumbnail_photo", Some(CACHE_TTL_7_DAYS));
         cache.insert(cache_key, buffer.clone());
-        return Ok(create_cached_image(buffer, &f_schema.extension, 604800));
+        return Ok(create_cached_image(
+            buffer,
+            &f_schema.extension,
+            CACHE_TTL_7_DAYS,
+        ));
     }
 
     // Return original file if no resizing needed
     let buffer = read_file_to_buffer(&f_schema.path)?;
-    Ok(create_cached_image(buffer, &f_schema.extension, 604800))
+    Ok(create_cached_image(
+        buffer,
+        &f_schema.extension,
+        CACHE_TTL_7_DAYS,
+    ))
 }
 
 #[derive(Serialize)]
@@ -244,8 +292,7 @@ pub async fn random_json(conn: DbConn, query: RandomQuery) -> AppResult<Json<Jso
 
     if query.size > MAX_PAGINATION_SIZE {
         return Err(AppError::validation(format!(
-            "Size cannot exceed {}",
-            MAX_PAGINATION_SIZE
+            "Size cannot exceed {MAX_PAGINATION_SIZE}"
         )));
     }
 
@@ -295,8 +342,7 @@ pub async fn get_all_files_json(
 
     if items_per_page > MAX_ITEMS_PER_PAGE {
         return Err(AppError::validation(format!(
-            "Items per page cannot exceed {}",
-            MAX_ITEMS_PER_PAGE
+            "Items per page cannot exceed {MAX_ITEMS_PER_PAGE}"
         )));
     }
 
@@ -307,16 +353,15 @@ pub async fn get_all_files_json(
         return Err(AppError::validation("Folder name too long"));
     }
 
-    let mut lock = state_files.files.lock().await;
-
-    if let Some(folder_files) = lock.get(folder_filter)
-        && !folder_files.is_empty()
-    {
-        return Ok(JsonFileResponse::with_files(
-            folder_files.clone(),
-            current_page,
-            folder_files.len(),
-        ));
+    // Check cache first (DashMap provides concurrent access without await)
+    if let Some(folder_files) = state_files.files.get(folder_filter) {
+        if !folder_files.is_empty() {
+            return Ok(JsonFileResponse::with_files(
+                folder_files.value().clone(),
+                current_page,
+                folder_files.len(),
+            ));
+        }
     }
 
     // Calculate offset
@@ -330,7 +375,10 @@ pub async fn get_all_files_json(
     )
     .await?;
 
-    lock.entry(folder_filter.to_string())
+    // Update cache (DashMap handles concurrent writes safely)
+    state_files
+        .files
+        .entry(folder_filter.to_string())
         .or_insert_with(Vec::new)
         .extend(files.clone());
 

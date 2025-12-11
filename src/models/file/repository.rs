@@ -63,32 +63,32 @@ impl FileSchema {
         max_results: i64,
         offset: i64,
         folder_name: String,
-    ) -> QueryResult<Vec<FileSchema>> {
+    ) -> QueryResult<Vec<Self>> {
         conn.run(move |c| {
             files::table
                 .filter(files::folder_name.eq(folder_name))
                 .offset(offset)
                 .limit(max_results)
-                .load::<FileSchema>(c)
+                .load::<Self>(c)
         })
         .await
     }
-    pub async fn all_by_folder(conn: &DbConn, folder_name: String) -> QueryResult<Vec<FileSchema>> {
+    pub async fn all_by_folder(conn: &DbConn, folder_name: String) -> QueryResult<Vec<Self>> {
         conn.run(move |c| {
             files::table
                 .filter(files::folder_name.eq(folder_name))
-                .load::<FileSchema>(c)
+                .load::<Self>(c)
         })
         .await
     }
 
-    pub async fn all_by_tag(conn: &DbConn, tag: String) -> QueryResult<Vec<FileSchema>> {
+    pub async fn all_by_tag(conn: &DbConn, tag: String) -> QueryResult<Vec<Self>> {
         // Use diesel's like method with proper parameter binding to prevent SQL injection
         let search_pattern = format!("%{}%", tag.replace('%', "\\%").replace('_', "\\_"));
         conn.run(move |c| {
             files::table
                 .filter(files::tags.like(search_pattern))
-                .load::<FileSchema>(c)
+                .load::<Self>(c)
         })
         .await
     }
@@ -105,7 +105,7 @@ impl FileSchema {
         root: String,
         tag: String,
         extension: String,
-    ) -> QueryResult<Vec<FileSchema>> {
+    ) -> QueryResult<Vec<Self>> {
         conn.run(move |c| {
             let mut query = files::table.into_boxed();
 
@@ -129,11 +129,7 @@ impl FileSchema {
             }
 
             // Apply ordering and limit
-            query
-                .order(random())
-                .distinct()
-                .limit(size)
-                .load::<FileSchema>(c)
+            query.order(random()).distinct().limit(size).load::<Self>(c)
         })
         .await
     }
@@ -143,9 +139,9 @@ impl FileSchema {
         size: i64,
         root: String,
         folders_size: i64,
-    ) -> QueryResult<Vec<FileSchema>> {
+    ) -> QueryResult<Vec<Self>> {
         let random_folders = Self::get_random_folders(conn, root, folders_size).await?;
-        let mut random_equal_files: HashSet<FileSchema> = HashSet::new();
+        let mut random_equal_files: HashSet<Self> = HashSet::new();
 
         for folder in random_folders {
             let folder_name = folder.clone();
@@ -155,7 +151,7 @@ impl FileSchema {
                         .order(random())
                         .filter(files::folder_name.eq(folder_name))
                         .limit(size / folders_size)
-                        .load::<FileSchema>(c)
+                        .load::<Self>(c)
                 })
                 .await
                 .unwrap_or(vec![]);
@@ -288,22 +284,14 @@ impl FileSchema {
         .await
     }
 
-    pub async fn get_by_hash(hash: String, conn: &DbConn) -> QueryResult<FileSchema> {
-        conn.run(move |c| {
-            files::table
-                .filter(files::hash.eq(hash))
-                .first::<FileSchema>(c)
-        })
-        .await
+    pub async fn get_by_hash(hash: String, conn: &DbConn) -> QueryResult<Self> {
+        conn.run(move |c| files::table.filter(files::hash.eq(hash)).first::<Self>(c))
+            .await
     }
 
-    pub async fn get_by_path(path: String, conn: &DbConn) -> QueryResult<Vec<FileSchema>> {
-        conn.run(move |c| {
-            files::table
-                .filter(files::path.eq(path))
-                .load::<FileSchema>(c)
-        })
-        .await
+    pub async fn get_by_path(path: String, conn: &DbConn) -> QueryResult<Vec<Self>> {
+        conn.run(move |c| files::table.filter(files::path.eq(path)).load::<Self>(c))
+            .await
     }
 
     fn process_tags(tags: Vec<String>) -> String {
@@ -345,7 +333,7 @@ impl FileSchema {
     /// Returns the number of affected rows: 1.
     pub async fn insert(image: Image, conn: &DbConn) -> QueryResult<usize> {
         conn.run(move |c| {
-            let t = FileSchema {
+            let t = Self {
                 id: None,
                 path: image.path,
                 hash: image.hash,
@@ -385,7 +373,7 @@ impl FileSchema {
 
     pub async fn update(image: Image, conn: &DbConn) -> QueryResult<usize> {
         conn.run(move |c| {
-            let t = FileSchema {
+            let t = Self {
                 id: None,
                 path: image.path,
                 hash: image.hash,
