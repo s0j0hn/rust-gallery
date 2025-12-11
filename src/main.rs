@@ -27,6 +27,7 @@ mod models;
 #[cfg(test)]
 mod tests;
 
+use dashmap::DashMap;
 use moka::sync::Cache;
 // Import dependencies
 use crate::constants::{CACHE_TTL_1_DAY, CACHE_TTL_4_DAYS, MAX_CACHE_CAPACITY};
@@ -37,7 +38,7 @@ use rocket::{
     serde::Deserialize,
 };
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions, Error};
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use tracing::{error, info};
 
 use crate::handlers::configs::handler::get_config;
@@ -139,7 +140,7 @@ async fn init_logging_system(rocket: Rocket<Build>) -> Rocket<Build> {
 
     // Initialize logging
     if let Err(e) = logging::init_logging(log_config) {
-        eprintln!("Failed to initialize logging: {}", e);
+        eprintln!("Failed to initialize logging: {e}");
         std::process::exit(1);
     }
 
@@ -182,7 +183,7 @@ fn rocket() -> _ {
         .attach(AdHoc::on_ignite("Initialize Logging", init_logging_system))
         // Register application state
         .manage(StateFiles {
-            files: HashMap::new().into(),
+            files: Arc::new(DashMap::new()),
         })
         .manage(cache)
         .manage(thread_manager)

@@ -112,6 +112,7 @@
         "parameters": [
           {
             "name": "root",
+            "required": true,
             "in": "query",
             "description": "Root folder name",
             "schema": {

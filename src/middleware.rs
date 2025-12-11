@@ -139,7 +139,7 @@ impl Fairing for SecurityLogger {
             "/bin/sh",
         ];
 
-        let full_request = format!("{} {}", path, query);
+        let full_request = format!("{path} {query}");
 
         for pattern in &suspicious_patterns {
             if full_request

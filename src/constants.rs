@@ -1,14 +1,18 @@
 // Application constants - extracted magic numbers for better maintainability
 
 // Cache durations (in seconds)
-pub const CACHE_TTL_1_DAY: u64 = 86400;
-pub const CACHE_TTL_4_DAYS: u64 = 345600;
-#[allow(dead_code)]
-pub const CACHE_TTL_1_WEEK: u64 = 604800;
+pub const CACHE_TTL_1_DAY: u64 = 86_400;
+pub const CACHE_TTL_4_DAYS: u64 = 345_600;
+pub const CACHE_TTL_7_DAYS: u64 = 604_800;
 
 // Image processing defaults
 pub const DEFAULT_THUMBNAIL_WIDTH: u32 = 150;
 pub const DEFAULT_THUMBNAIL_HEIGHT: u32 = 150;
+
+// Image resize limits (prevent DoS attacks)
+pub const MAX_RESIZE_WIDTH: u32 = 4096;
+pub const MAX_RESIZE_HEIGHT: u32 = 4096;
+pub const MAX_RESIZE_PIXELS: u64 = 16_777_216; // 4096 * 4096
 
 // Validation limits
 pub const MIN_HASH_LENGTH: usize = 8;

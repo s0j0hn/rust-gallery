@@ -28,7 +28,7 @@ pub struct ConfigSchema {
 
 impl From<ConfigSchemaRaw> for ConfigSchema {
     fn from(raw: ConfigSchemaRaw) -> Self {
-        ConfigSchema {
+        Self {
             id: raw.id.unwrap_or(1),
             random_equal_folders: raw.random_equal_folders,
             photo_per_random: raw.photo_per_random,
@@ -40,7 +40,7 @@ impl From<ConfigSchemaRaw> for ConfigSchema {
 
 impl From<ConfigInfo> for ConfigSchemaRaw {
     fn from(info: ConfigInfo) -> Self {
-        ConfigSchemaRaw {
+        Self {
             id: Some(1),
             random_equal_folders: info.random_equal_folders,
             photo_per_random: info.photo_per_random,
@@ -60,7 +60,7 @@ pub struct ConfigInfo {
 }
 
 impl ConfigSchema {
-    pub async fn get_config(conn: &DbConn) -> QueryResult<ConfigSchema> {
+    pub async fn get_config(conn: &DbConn) -> QueryResult<Self> {
         let start = Instant::now();
         let query = "SELECT * FROM config WHERE id = 1";
         db_logging::log_query_start(query, Some("id=1"));
@@ -70,7 +70,7 @@ impl ConfigSchema {
                 config::table
                     .filter(config::id.eq(1))
                     .first::<ConfigSchemaRaw>(c)
-                    .map(ConfigSchema::from)
+                    .map(Self::from)
             })
             .await;
 
@@ -104,7 +104,7 @@ impl ConfigSchema {
     pub async fn update(conn: &DbConn, config: ConfigInfo) -> QueryResult<usize> {
         let start = Instant::now();
         let query = "INSERT INTO config ... ON CONFLICT UPDATE";
-        db_logging::log_query_start(query, Some(&format!("config: {:?}", config)));
+        db_logging::log_query_start(query, Some(&format!("config: {config:?}")));
 
         let result = conn
             .run(move |c| {

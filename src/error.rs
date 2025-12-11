@@ -32,14 +32,14 @@ struct ErrorResponse {
 impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AppError::DatabaseError(e) => write!(f, "Database error: {e}"),
-            AppError::IoError(e) => write!(f, "IO error: {e}"),
-            AppError::ImageError(e) => write!(f, "Image processing error: {e}"),
-            AppError::NotFound(msg) => write!(f, "Not found: {msg}"),
-            AppError::BadRequest(msg) => write!(f, "Bad request: {msg}"),
-            AppError::InternalError(msg) => write!(f, "Internal error: {msg}"),
-            AppError::Unauthorized(msg) => write!(f, "Unauthorized: {msg}"),
-            AppError::ValidationError(msg) => write!(f, "Validation error: {msg}"),
+            Self::DatabaseError(e) => write!(f, "Database error: {e}"),
+            Self::IoError(e) => write!(f, "IO error: {e}"),
+            Self::ImageError(e) => write!(f, "Image processing error: {e}"),
+            Self::NotFound(msg) => write!(f, "Not found: {msg}"),
+            Self::BadRequest(msg) => write!(f, "Bad request: {msg}"),
+            Self::InternalError(msg) => write!(f, "Internal error: {msg}"),
+            Self::Unauthorized(msg) => write!(f, "Unauthorized: {msg}"),
+            Self::ValidationError(msg) => write!(f, "Validation error: {msg}"),
         }
     }
 }
@@ -47,7 +47,7 @@ impl fmt::Display for AppError {
 impl<'r> Responder<'r, 'static> for AppError {
     fn respond_to(self, req: &'r rocket::Request<'_>) -> response::Result<'static> {
         let (status, error_msg, show_details) = match &self {
-            AppError::NotFound(_msg) => {
+            Self::NotFound(_msg) => {
                 info!(
                     error = %self,
                     path = %req.uri().path(),
@@ -56,7 +56,7 @@ impl<'r> Responder<'r, 'static> for AppError {
                 );
                 (Status::NotFound, self.to_string(), true)
             }
-            AppError::BadRequest(_msg) => {
+            Self::BadRequest(_msg) => {
                 warn!(
                     error = %self,
                     path = %req.uri().path(),
@@ -66,7 +66,7 @@ impl<'r> Responder<'r, 'static> for AppError {
                 );
                 (Status::BadRequest, self.to_string(), true)
             }
-            AppError::Unauthorized(_msg) => {
+            Self::Unauthorized(_msg) => {
                 warn!(
                     error = %self,
                     path = %req.uri().path(),
@@ -76,7 +76,7 @@ impl<'r> Responder<'r, 'static> for AppError {
                 );
                 (Status::Unauthorized, self.to_string(), true)
             }
-            AppError::ValidationError(_msg) => {
+            Self::ValidationError(_msg) => {
                 info!(
                     error = %self,
                     path = %req.uri().path(),
@@ -85,7 +85,7 @@ impl<'r> Responder<'r, 'static> for AppError {
                 );
                 (Status::UnprocessableEntity, self.to_string(), true)
             }
-            AppError::DatabaseError(db_err) => {
+            Self::DatabaseError(db_err) => {
                 error!(
                     error = %self,
                     db_error = %db_err,
@@ -99,7 +99,7 @@ impl<'r> Responder<'r, 'static> for AppError {
                     false,
                 )
             }
-            AppError::IoError(io_err) => {
+            Self::IoError(io_err) => {
                 error!(
                     error = %self,
                     io_error = %io_err,
@@ -113,7 +113,7 @@ impl<'r> Responder<'r, 'static> for AppError {
                     false,
                 )
             }
-            AppError::ImageError(img_err) => {
+            Self::ImageError(img_err) => {
                 error!(
                     error = %self,
                     image_error = %img_err,
@@ -127,7 +127,7 @@ impl<'r> Responder<'r, 'static> for AppError {
                     false,
                 )
             }
-            AppError::InternalError(_msg) => {
+            Self::InternalError(_msg) => {
                 error!(
                     error = %self,
                     path = %req.uri().path(),
@@ -164,45 +164,45 @@ impl<'r> Responder<'r, 'static> for AppError {
 impl From<diesel::result::Error> for AppError {
     fn from(error: diesel::result::Error) -> Self {
         match error {
-            diesel::result::Error::NotFound => AppError::NotFound("Record not found".to_string()),
-            _ => AppError::DatabaseError(error),
+            diesel::result::Error::NotFound => Self::NotFound("Record not found".to_string()),
+            _ => Self::DatabaseError(error),
         }
     }
 }
 
 impl From<std::io::Error> for AppError {
     fn from(error: std::io::Error) -> Self {
-        AppError::IoError(error)
+        Self::IoError(error)
     }
 }
 
 impl From<image::ImageError> for AppError {
     fn from(error: image::ImageError) -> Self {
-        AppError::ImageError(error)
+        Self::ImageError(error)
     }
 }
 
 impl From<std::str::ParseBoolError> for AppError {
     fn from(error: std::str::ParseBoolError) -> Self {
-        AppError::ValidationError(format!("Invalid boolean value: {}", error))
+        Self::ValidationError(format!("Invalid boolean value: {error}"))
     }
 }
 
 impl From<std::num::ParseIntError> for AppError {
     fn from(error: std::num::ParseIntError) -> Self {
-        AppError::ValidationError(format!("Invalid integer value: {}", error))
+        Self::ValidationError(format!("Invalid integer value: {error}"))
     }
 }
 
 impl From<std::str::Utf8Error> for AppError {
     fn from(error: std::str::Utf8Error) -> Self {
-        AppError::ValidationError(format!("Invalid UTF-8 string: {}", error))
+        Self::ValidationError(format!("Invalid UTF-8 string: {error}"))
     }
 }
 
 impl From<std::string::FromUtf8Error> for AppError {
     fn from(error: std::string::FromUtf8Error) -> Self {
-        AppError::ValidationError(format!("Invalid UTF-8 string: {}", error))
+        Self::ValidationError(format!("Invalid UTF-8 string: {error}"))
     }
 }
 
@@ -212,19 +212,19 @@ pub type AppResult<T> = Result<T, AppError>;
 // Helper functions for common error patterns
 impl AppError {
     pub fn not_found(resource: &str) -> Self {
-        AppError::NotFound(format!("{resource} not found"))
+        Self::NotFound(format!("{resource} not found"))
     }
 
     pub fn bad_request(message: impl Into<String>) -> Self {
-        AppError::BadRequest(message.into())
+        Self::BadRequest(message.into())
     }
 
     #[allow(dead_code)]
     pub fn internal(message: impl Into<String>) -> Self {
-        AppError::InternalError(message.into())
+        Self::InternalError(message.into())
     }
 
     pub fn validation(message: impl Into<String>) -> Self {
-        AppError::ValidationError(message.into())
+        Self::ValidationError(message.into())
     }
 }
