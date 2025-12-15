@@ -354,14 +354,14 @@ pub async fn get_all_files_json(
     }
 
     // Check cache first (DashMap provides concurrent access without await)
-    if let Some(folder_files) = state_files.files.get(folder_filter) {
-        if !folder_files.is_empty() {
-            return Ok(JsonFileResponse::with_files(
-                folder_files.value().clone(),
-                current_page,
-                folder_files.len(),
-            ));
-        }
+    if let Some(folder_files) = state_files.files.get(folder_filter)
+        && !folder_files.is_empty()
+    {
+        return Ok(JsonFileResponse::with_files(
+            folder_files.value().clone(),
+            current_page,
+            folder_files.len(),
+        ));
     }
 
     // Calculate offset
@@ -379,7 +379,7 @@ pub async fn get_all_files_json(
     state_files
         .files
         .entry(folder_filter.to_string())
-        .or_insert_with(Vec::new)
+        .or_default()
         .extend(files.clone());
 
     Ok(JsonFileResponse::with_files(

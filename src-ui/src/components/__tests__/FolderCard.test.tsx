@@ -1,12 +1,36 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import FolderCard from '../FolderCard'
 import { Folder } from '../../types/gallery'
+
+// Create a test QueryClient
+const createTestQueryClient = () =>
+  new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  })
+
+// Test wrapper component
+const wrapper = ({ children }: { children: React.ReactNode }) => (
+  <QueryClientProvider client={createTestQueryClient()}>{children}</QueryClientProvider>
+)
 
 // Mock the hooks
 vi.mock('../../hooks/useFolders', () => ({
   useFolders: () => ({
     searchQuery: '',
+  }),
+}))
+
+// Mock the useTagsQuery hook
+vi.mock('../../hooks/queries/useTagsQuery', () => ({
+  useTagsQuery: () => ({
+    data: [],
+    isLoading: false,
   }),
 }))
 
@@ -34,7 +58,7 @@ describe('FolderCard', () => {
   }
 
   it('renders folder information correctly', () => {
-    render(<FolderCard {...mockProps} />)
+    render(<FolderCard {...mockProps} />, { wrapper })
 
     expect(screen.getByText('Test Album')).toBeInTheDocument()
     expect(screen.getByText('42 photos')).toBeInTheDocument()
@@ -44,7 +68,7 @@ describe('FolderCard', () => {
   })
 
   it('calls onView when View Album button is clicked', () => {
-    render(<FolderCard {...mockProps} />)
+    render(<FolderCard {...mockProps} />, { wrapper })
 
     const viewButton = screen.getByText('View Album')
     fireEvent.click(viewButton)
@@ -53,7 +77,7 @@ describe('FolderCard', () => {
   })
 
   it('calls onRandomPhoto when Random Photo button is clicked', () => {
-    render(<FolderCard {...mockProps} />)
+    render(<FolderCard {...mockProps} />, { wrapper })
 
     const randomButton = screen.getByText('Random Photo')
     fireEvent.click(randomButton)
@@ -62,7 +86,7 @@ describe('FolderCard', () => {
   })
 
   it('calls onTagManage when Manage Tags button is clicked', () => {
-    render(<FolderCard {...mockProps} />)
+    render(<FolderCard {...mockProps} />, { wrapper })
 
     const tagButton = screen.getByText('Manage Tags')
     fireEvent.click(tagButton)
@@ -71,7 +95,7 @@ describe('FolderCard', () => {
   })
 
   it('calls onDelete when delete button is clicked', () => {
-    render(<FolderCard {...mockProps} />)
+    render(<FolderCard {...mockProps} />, { wrapper })
 
     const deleteButton = screen.getByRole('button', { name: /delete album/i })
     fireEvent.click(deleteButton)
@@ -80,7 +104,7 @@ describe('FolderCard', () => {
   })
 
   it('calls onTagClick when a tag is clicked', () => {
-    render(<FolderCard {...mockProps} />)
+    render(<FolderCard {...mockProps} />, { wrapper })
 
     const tagElement = screen.getByText('test')
     fireEvent.click(tagElement)
@@ -89,7 +113,7 @@ describe('FolderCard', () => {
   })
 
   it('calls onTagClick when root label is clicked', () => {
-    render(<FolderCard {...mockProps} />)
+    render(<FolderCard {...mockProps} />, { wrapper })
 
     const rootElement = screen.getByText('photos')
     fireEvent.click(rootElement)
