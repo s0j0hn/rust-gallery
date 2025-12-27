@@ -63,8 +63,8 @@ importers:
         specifier: ^9.16.0
         version: 9.16.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react-photoswipe-gallery:
-        specifier: ^3.1.1
-        version: 3.1.1(photoswipe@5.4.4)(prop-types@15.8.1)(react@19.2.3)
+        specifier: ^4.0.0
+        version: 4.0.0(photoswipe@5.4.4)(prop-types@15.8.1)(react@19.2.3)
       react-router-dom:
         specifier: ^7.10.1
         version: 7.10.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -2571,8 +2571,8 @@ packages:
   react-is@18.3.1:
     resolution: {integrity: sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==}
 
-  react-photoswipe-gallery@3.1.1:
-    resolution: {integrity: sha512-2hQkUkELwGDSnxdXeOGCySOLiK5vlUFZn9HhwmCXZz0jTqQwG6zy09M6M/JypYFa3md9zd/XW0aUD39dqltzsw==}
+  react-photoswipe-gallery@4.0.0:
+    resolution: {integrity: sha512-rpvGSBddLp1hZfTZgi3UFLJKlupHfDhW6e7w6jUUr5bagTWfrxJ7nB8yzNkx+BaoiMyy4FvJBwc4n/+QW2ft4g==}
     peerDependencies:
       photoswipe: '>= 5.2.2'
       prop-types: '>= 15.7.0'
@@ -6187,7 +6187,7 @@ snapshots:
 
   react-is@18.3.1: {}
 
-  react-photoswipe-gallery@3.1.1(photoswipe@5.4.4)(prop-types@15.8.1)(react@19.2.3):
+  react-photoswipe-gallery@4.0.0(photoswipe@5.4.4)(prop-types@15.8.1)(react@19.2.3):
     dependencies:
       photoswipe: 5.4.4
       prop-types: 15.8.1
