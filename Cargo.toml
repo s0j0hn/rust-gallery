@@ -22,7 +22,7 @@ walkdir = "2.5.0"
 sha2 = "0.10.9"
 image = "0.25.8"
 moka = { version = "0.12.10", features = ["sync"] }
-chrono = "0.4.42"
+chrono = "0.4.44"
 dashmap = "6.1"
 tokio = { version = "1.47", features = ["rt-multi-thread"] }
 
